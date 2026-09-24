@@ -1,0 +1,30 @@
+export const diccionario = {
+  es: {
+    ingresarComo: "Ingresar como",
+    cronograma: "Cronograma de Eventos",
+    crearEvento: "Crear Evento Nuevo",
+    tipo: "Tipo",
+    nombre: "Nombre",
+    pais: "País",
+    provincia: "Provincia / Estado",
+    fecha: "Fecha",
+    lugar: "Lugar",
+    valor: "Valor $",
+    pin: "Evento PIN",
+    botonCrear: "Crear",
+  },
+  en: {
+    ingresarComo: "Login as",
+    cronograma: "Events Schedule",
+    crearEvento: "Create New Event",
+    tipo: "Type",
+    nombre: "Name",
+    pais: "Country",
+    provincia: "Province / State",
+    fecha: "Date",
+    lugar: "Location",
+    valor: "Value $",
+    pin: "Event PIN",
+    botonCrear: "Create",
+  }
+};

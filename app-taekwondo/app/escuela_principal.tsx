@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Image, ActivityIndicator, Alert, ScrollView, Modal, FlatList } from 'react-native';
-import { router, Stack } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router, Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../lib/supabase';
 
 const MESES = [
@@ -15,7 +15,6 @@ export default function EscuelaPrincipalScreen() {
   const [cargando, setCargando] = useState(true);
   const [escuelaDatos, setEscuelaDatos] = useState<any>(null);
 
-  // Estados para el Modal de Cobro
   const [modalCobro, setModalCobro] = useState(false);
   const [alumnos, setAlumnos] = useState<any[]>([]);
   const [alumnoSeleccionado, setAlumnoSeleccionado] = useState<any>(null);
@@ -32,15 +31,19 @@ export default function EscuelaPrincipalScreen() {
         let idLogueado = session?.user?.id || await AsyncStorage.getItem('@escuela_id_logueada') || await AsyncStorage.getItem('@usuario_id');
         
         if (idLogueado) {
+          // 🔥 BLINDAJE: limit(1).maybeSingle()
           const { data: escuelaData, error } = await supabase
             .from('escuelas')
             .select('*')
             .eq('id', idLogueado)
-            .single();
+            .limit(1)
+            .maybeSingle();
 
           if (!error && escuelaData) {
             setEscuelaDatos(escuelaData);
             cargarAlumnos(escuelaData.id);
+          } else if (error) {
+            console.log("Error consultando escuela:", error.message);
           }
         }
       } catch (error) {
@@ -115,7 +118,6 @@ export default function EscuelaPrincipalScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContainer} bounces={false}>
         
-        {/* HEADER: LOGO Y NOMBRE */}
         <View style={styles.headerSection}>
           <View style={styles.logotipoContenedor}>
             <View style={styles.logotipoBox}>
@@ -132,17 +134,17 @@ export default function EscuelaPrincipalScreen() {
           </Text>
         </View>
 
-        {/* BOTONES ILUSTRADOS SUPERIORES */}
         <View style={styles.filaIlustraciones}>
-          
-          {/* 🔥 RUTAS Y NOMBRES DE IMAGEN CORREGIDOS */}
-          <TouchableOpacity style={styles.btnIlustrado} onPress={() => router.push('/escuelas')}>
+          {/* 🔥 ACÁ ESTÁ EL CAMBIO: Apunta a /escuela_dojangs y cambiamos la imagen si es posible */}
+          <TouchableOpacity style={styles.btnIlustrado} onPress={() => router.push('/escuela_dojangs')}>
             <Image 
               source={idiomaActual === 'es' 
-                ? require('../assets/images/boton_nuestrosalumnos.png') 
-                : require('../assets/images/boton_nuestrosalumnos_en.png')}
+                ? require('../assets/images/boton_nuestrosdojangs.png') // <-- Necesitás crear esta imagen si no existe
+                : require('../assets/images/boton_nuestrosdojangs_en.png')} // <-- Y esta en inglés
               style={styles.imgIlustracion} 
               resizeMode="contain" 
+              // Si no tenés esas imágenes creadas, la app va a tirar error de "Unable to resolve module". 
+              // En ese caso, volvé a poner require('../assets/images/boton_nuestrosalumnos.png') temporalmente.
             />
           </TouchableOpacity>
 
@@ -155,17 +157,14 @@ export default function EscuelaPrincipalScreen() {
               resizeMode="contain" 
             />
           </TouchableOpacity>
-
         </View>
 
-        {/* BANNER DE PUBLICIDAD CENTRAL */}
         <View style={styles.bannerContainer}>
           <View style={styles.bannerBox}>
             <Text style={styles.textoBanner}>{idiomaActual === 'es' ? 'PUBLICIDAD' : 'ADVERTISING'}</Text>
           </View>
         </View>
 
-        {/* FOOTER: VOLVER Y PINCELADA ROJA */}
         <View style={styles.footerSection}>
           <Image source={require('../assets/images/pincelada_roja.png')} style={styles.separadorRojo} resizeMode="stretch" />
           
@@ -178,7 +177,6 @@ export default function EscuelaPrincipalScreen() {
 
       </ScrollView>
 
-      {/* MODAL DE COBRO */}
       <Modal visible={modalCobro} transparent animationType="slide">
         <View style={styles.modalFondoOverlay}>
           <View style={styles.modalTarjeta}>

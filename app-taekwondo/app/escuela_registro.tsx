@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, Image, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Modal, FlatList } from 'react-native';
-import { router, Stack } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system';
+import * as ImagePicker from 'expo-image-picker';
+import { router, Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../lib/supabase';
-import * as ImagePicker from 'expo-image-picker'; 
-import * as FileSystem from 'expo-file-system'; // <-- El motor mágico de Android
 
-// Lista Maestra Bilingüe
 const GRADUACIONES_BILINGUES = [
   { id: 1, es: 'Blanco', en: 'White Belt' },
   { id: 2, es: 'Blanco Punta Amarilla', en: 'White Belt Yellow Stripe' },
@@ -34,7 +33,6 @@ export default function EscuelaRegistroScreen() {
   const [idiomaActual, setIdiomaActual] = useState('es');
   const [cargando, setCargando] = useState(false);
 
-  // --- CAMPOS DEL FORMULARIO ---
   const [nombre, setNombre] = useState('');
   const [director, setDirector] = useState(''); 
   const [alias, setAlias] = useState('');
@@ -42,21 +40,17 @@ export default function EscuelaRegistroScreen() {
   const [logoUri, setLogoUri] = useState<string | null>(null); 
   const [provinciaManual, setProvinciaManual] = useState(''); 
 
-  // --- ESTADOS DE LISTAS ---
   const [paises, setPaises] = useState<any[]>([]);
   const [provincias, setProvincias] = useState<any[]>([]);
   const [graduaciones, setGraduaciones] = useState<any[]>([]);
-  const [asociaciones, setAsociaciones] = useState<any[]>([]);
   
   const [paisSeleccionado, setPaisSeleccionado] = useState<any>(null);
   const [provinciaSeleccionada, setProvinciaSeleccionada] = useState<any>(null);
   const [graduacionSeleccionada, setGraduacionSeleccionada] = useState<any>(null);
-  const [asociacionSeleccionada, setAsociacionSeleccionada] = useState<any>(null);
 
   const [modalPais, setModalPais] = useState(false);
   const [modalProvincia, setModalProvincia] = useState(false);
   const [modalGraduacion, setModalGraduacion] = useState(false);
-  const [modalAsociacion, setModalAsociacion] = useState(false);
 
   useEffect(() => {
     const inicializar = async () => {
@@ -71,17 +65,14 @@ export default function EscuelaRegistroScreen() {
     try {
       const [
         { data: dataPaises }, 
-        { data: dataGraduaciones },
-        { data: dataAsociaciones }
+        { data: dataGraduaciones }
       ] = await Promise.all([
         supabase.from('paises').select('*').order('nombre_es', { ascending: true }),
-        supabase.from('graduaciones').select('*').order('id', { ascending: true }),
-        supabase.from('asociaciones').select('id, nombre').order('nombre', { ascending: true })
+        supabase.from('graduaciones').select('*').order('id', { ascending: true })
       ]);
       
       if (dataPaises) setPaises(dataPaises);
       if (dataGraduaciones) setGraduaciones(dataGraduaciones);
-      if (dataAsociaciones) setAsociaciones(dataAsociaciones);
     } catch (error) {
       console.log("Error cargando listas:", error);
     }
@@ -120,7 +111,6 @@ export default function EscuelaRegistroScreen() {
     }
   };
 
-  // --- MOTOR UNIVERSAL CORREGIDO: FileSystem.uploadAsync para forzar el Content-Type ---
   const subirLogoASupabase = async (uri: string) => {
     try {
       if (uri.startsWith('http')) return uri;
@@ -141,7 +131,6 @@ export default function EscuelaRegistroScreen() {
         uriParaSubir = tempPath; 
       }
 
-      // 🔥 ACÁ ESTÁ LA MAGIA: Expo FileSystem inyecta el formato directamente sin pasar por fetch
       const uploadRes = await FileSystem.uploadAsync(uploadUrl, uriParaSubir, {
         httpMethod: 'POST',
         headers: {
@@ -149,7 +138,7 @@ export default function EscuelaRegistroScreen() {
           'apikey': supabaseAnonKey,
           'Content-Type': `image/${fileExt}`
         },
-        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT
+        uploadType: 1
       });
 
       if (uploadRes.status !== 200 && uploadRes.status !== 201) {
@@ -174,6 +163,10 @@ export default function EscuelaRegistroScreen() {
 
     setCargando(true);
     try {
+      // 1. Obtenemos el ID de la asociación que está logueada en este momento
+      const { data: { session } } = await supabase.auth.getSession();
+      const asocIdLogueada = session?.user?.id || await AsyncStorage.getItem('@asociacion_id_logueada');
+
       let urlFinalLogo = logoUri;
 
       if (logoUri && !logoUri.startsWith('http')) {
@@ -188,15 +181,15 @@ export default function EscuelaRegistroScreen() {
         id_graduacion: graduacionSeleccionada.id,
         alias: alias.trim(),
         password: password.trim(),
-        id_asociacion: asociacionSeleccionada ? asociacionSeleccionada.id : null, 
-        foto_url: urlFinalLogo // 🔥 CORREGIDO: Ahora guarda la imagen en la columna "foto_url"
+        id_asociacion: asocIdLogueada, // Acá inyectamos la asociación padre de forma invisible
+        foto_url: urlFinalLogo 
       };
 
       const { error } = await supabase.from('escuelas').insert([nuevaEscuela]);
       if (error) throw error;
       
       Alert.alert('Éxito', idiomaActual === 'es' ? 'Escuela registrada correctamente.' : 'School registered successfully.');
-      router.replace('/login'); 
+      router.replace('/asociacion_principal'); // Redirige al panel principal de la asociación
       
     } catch (err: any) {
       Alert.alert('Error', err.message);
@@ -210,15 +203,15 @@ export default function EscuelaRegistroScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <Image source={require('../assets/images/pincelada_negra.png')} style={styles.fondoArribaDerecha} resizeMode="contain" />
 
-      <TouchableOpacity style={styles.btnDevReset}>
-        <Text style={styles.txtDevReset}>✕ DEV RESET</Text>
+      <TouchableOpacity style={styles.btnDevReset} onPress={() => router.back()}>
+        <Text style={styles.txtDevReset}>← {idiomaActual === 'es' ? 'VOLVER' : 'BACK'}</Text>
       </TouchableOpacity>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContainer} bounces={false}>
           
           <Text style={styles.tituloHeader}>
-            <Text style={styles.tituloHeaderRojo}>{idiomaActual === 'es' ? 'Crear ' : 'Create '}</Text>{idiomaActual === 'es' ? 'usuario' : 'user'}
+            <Text style={styles.tituloHeaderRojo}>{idiomaActual === 'es' ? 'Crear ' : 'Create '}</Text>{idiomaActual === 'es' ? 'escuela' : 'school'}
           </Text>
 
           <View style={styles.inputGroup}>
@@ -268,15 +261,6 @@ export default function EscuelaRegistroScreen() {
             <Text style={styles.label}>{idiomaActual === 'es' ? 'Graduación' : 'Rank'}</Text>
             <TouchableOpacity style={styles.inputSelect} onPress={() => setModalGraduacion(true)}>
               <Text style={styles.inputText}>{graduacionSeleccionada ? (idiomaActual === 'es' ? (graduacionSeleccionada.nombre_es || graduacionSeleccionada.nombre) : (graduacionSeleccionada.nombre_en || graduacionSeleccionada.nombre)) : 'Seleccionar...'}</Text>
-              <Text style={styles.triangulo}>▽</Text>
-            </TouchableOpacity>
-            <Image source={require('../assets/images/esquina_roja_larga.png')} style={styles.pinceladaLarga} resizeMode="stretch" />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>{idiomaActual === 'es' ? 'Asociación (Opcional)' : 'Assoc. (Optional)'}</Text>
-            <TouchableOpacity style={styles.inputSelect} onPress={() => setModalAsociacion(true)}>
-              <Text style={styles.inputText} numberOfLines={1}>{asociacionSeleccionada ? asociacionSeleccionada.nombre : 'Ninguna...'}</Text>
               <Text style={styles.triangulo}>▽</Text>
             </TouchableOpacity>
             <Image source={require('../assets/images/esquina_roja_larga.png')} style={styles.pinceladaLarga} resizeMode="stretch" />
@@ -366,23 +350,6 @@ export default function EscuelaRegistroScreen() {
         </View>
       </Modal>
 
-      <Modal visible={modalAsociacion} transparent animationType="fade">
-        <View style={styles.modalFondoOverlay}>
-          <View style={styles.modalBoxContenedor}>
-            <Text style={styles.modalTituloSelector}>{idiomaActual === 'es' ? 'ASOCIACIONES' : 'ASSOCIATIONS'}</Text>
-            <TouchableOpacity style={styles.opcionItemSelector} onPress={() => { setAsociacionSeleccionada(null); setModalAsociacion(false); }}>
-              <Text style={[styles.opcionItemTexto, { color: '#888', fontStyle: 'italic' }]}>{idiomaActual === 'es' ? 'Ninguna (Independiente)' : 'None (Independent)'}</Text>
-            </TouchableOpacity>
-            <FlatList data={asociaciones} keyExtractor={(item, index) => item?.id ? String(item.id) : String(index)} renderItem={({ item }) => (
-              <TouchableOpacity style={styles.opcionItemSelector} onPress={() => { setAsociacionSeleccionada(item); setModalAsociacion(false); }}>
-                <Text style={styles.opcionItemTexto}>{item.nombre}</Text>
-              </TouchableOpacity>
-            )} />
-            <TouchableOpacity style={styles.btnCerrarModal} onPress={() => setModalAsociacion(false)}><Text style={styles.txtCerrarModal}>{idiomaActual === 'es' ? 'Cerrar ✕' : 'Close ✕'}</Text></TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
       <StatusBar style="light" />
     </SafeAreaView>
   );
@@ -392,8 +359,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#050505' },
   fondoArribaDerecha: { position: 'absolute', top: 0, right: 0, width: 300, height: 600, opacity: 0.6, zIndex: -1 },
   scrollContainer: { flexGrow: 1, paddingHorizontal: 25, paddingTop: 60, paddingBottom: 40 },
-  btnDevReset: { position: 'absolute', top: 45, left: 15, borderWidth: 1, borderColor: '#00cc99', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, zIndex: 10 },
-  txtDevReset: { color: '#00cc99', fontSize: 12, fontWeight: 'bold' },
+  btnDevReset: { position: 'absolute', top: 45, left: 15, borderWidth: 1, borderColor: '#333', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, zIndex: 10 },
+  txtDevReset: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
   tituloHeader: { color: '#ffffff', fontSize: 28, fontWeight: '900', letterSpacing: 0.5, marginBottom: 40, textAlign: 'center' },
   tituloHeaderRojo: { color: '#e60000' },
   inputGroup: { position: 'relative', marginBottom: 25 },

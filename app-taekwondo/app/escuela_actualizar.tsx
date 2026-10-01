@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, Image, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Modal, FlatList } from 'react-native';
-import { router, Stack } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system';
+import * as ImagePicker from 'expo-image-picker';
+import { router, Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../lib/supabase';
-import * as ImagePicker from 'expo-image-picker'; 
-import * as FileSystem from 'expo-file-system'; 
 
-// Lista Maestra Bilingüe
 const GRADUACIONES_BILINGUES = [
   { id: 1, es: 'Blanco', en: 'White Belt' },
   { id: 2, es: 'Blanco Punta Amarilla', en: 'White Belt Yellow Stripe' },
@@ -35,7 +34,6 @@ export default function EscuelaActualizarScreen() {
   const [cargando, setCargando] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // --- CAMPOS DEL FORMULARIO ---
   const [nombre, setNombre] = useState('');
   const [director, setDirector] = useState(''); 
   const [alias, setAlias] = useState('');
@@ -43,7 +41,6 @@ export default function EscuelaActualizarScreen() {
   const [logoUri, setLogoUri] = useState<string | null>(null); 
   const [provinciaManual, setProvinciaManual] = useState(''); 
 
-  // --- ESTADOS DE LISTAS ---
   const [paises, setPaises] = useState<any[]>([]);
   const [provincias, setProvincias] = useState<any[]>([]);
   const [graduaciones, setGraduaciones] = useState<any[]>([]);
@@ -79,7 +76,6 @@ export default function EscuelaActualizarScreen() {
         if (dataGraduaciones) setGraduaciones(dataGraduaciones);
         if (dataAsociaciones) setAsociaciones(dataAsociaciones);
 
-        // 🔥 MAGIA DE EDICIÓN: Buscamos quién está logueado y le cargamos sus datos
         const idDetectado = await AsyncStorage.getItem('@escuela_id_logueada'); 
         
         if (idDetectado) {
@@ -89,7 +85,8 @@ export default function EscuelaActualizarScreen() {
             .from('escuelas')
             .select('*')
             .eq('id', idDetectado)
-            .single();
+            .limit(1)
+            .maybeSingle();
 
           if (!error && escuela) {
             setNombre(escuela.nombre || '');
@@ -98,7 +95,6 @@ export default function EscuelaActualizarScreen() {
             setPassword(escuela.password || ''); 
             setLogoUri(escuela.logo_url || null);
             
-            // Reconstruir selecciones
             if (escuela.id_graduacion && dataGraduaciones) {
               const grad = dataGraduaciones.find((g: any) => g.id === escuela.id_graduacion);
               if (grad) setGraduacionSeleccionada(grad);
@@ -111,7 +107,6 @@ export default function EscuelaActualizarScreen() {
               const pais = dataPaises.find((p: any) => p.id === escuela.id_pais);
               if (pais) {
                 setPaisSeleccionado(pais);
-                // Si hay país, traemos sus provincias para ver si coincide con la guardada
                 const { data: provData } = await supabase.from('provincias').select('*').eq('id_pais', pais.id);
                 if (provData && provData.length > 0) {
                   setProvincias(provData);
@@ -125,7 +120,7 @@ export default function EscuelaActualizarScreen() {
           }
         } else {
           Alert.alert("Error", "No se encontró tu sesión. Por favor, volvé a iniciar sesión.");
-          router.replace('/login');
+          router.replace('/');
         }
       } catch (error) {
         console.log("Error cargando perfil:", error);
@@ -168,7 +163,6 @@ export default function EscuelaActualizarScreen() {
     }
   };
 
-  // --- MOTOR UNIVERSAL CON TRUCO DEL CLON ---
   const subirLogoASupabase = async (uri: string) => {
     try {
       if (uri.startsWith('http')) return uri;

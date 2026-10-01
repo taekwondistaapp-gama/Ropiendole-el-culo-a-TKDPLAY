@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Image, ScrollView, SafeAreaView, KeyboardAvoidingView, Platform, Dimensions, Modal, FlatList, ActivityIndicator, Alert } from 'react-native';
-import { Stack, router } from 'expo-router';
-import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
+import { Stack, router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Image, KeyboardAvoidingView, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { supabase } from '../lib/supabase';
 
 const { width } = Dimensions.get('window');
 
@@ -39,7 +39,7 @@ const traducirACoreanoOficial = (textoEspanol: string): string => {
     'TA': '타', 'TE': '테', 'TI': '티', 'TO': '토', 'TU': '투',
     'A': '아', 'E': '에', 'I': '이', 'O': '오', 'U': '우',
     'N': 'ㄴ', 'S': '스', 'R': 'ㄹ', 'L': 'ㄹ', 'M': 'ㅁ',
-    // --- ESCUDO ANTI-CONSONANTES SUELTAS ---
+    // --- ESCUDO CONSONANTES SUELTAS ---
     'D': '드', 'B': '브', 'P': '프', 'T': '트', 'K': '크', 'C': '크',
     'G': '그', 'F': '프', 'V': '브', 'Z': '스', 'J': '흐', 'H': '흐', 'X': '크스'
   };
@@ -161,10 +161,11 @@ export default function PracticanteRegistroScreen() {
   useEffect(() => {
     const inicializarPantalla = async () => {
       try {
+        // CORRECCIÓN: Se cambió nombre_dojang por nombre en el select de dojangs
         const [resGen, resPais, resDoj, resGrad] = await Promise.all([
           supabase.from('generos').select('id, nombre'),
           supabase.from('paises').select('id, nombre_es'),
-          supabase.from('dojangs').select('id, nombre_dojang'),
+          supabase.from('dojangs').select('id, nombre'), 
           supabase.from('graduaciones').select('id, nombre')
         ]);
 
@@ -172,7 +173,7 @@ export default function PracticanteRegistroScreen() {
           ...prev,
           generos: resGen.data || [],
           paises: (resPais.data || []).map((p: any) => ({ id: p.id, nombre: p.nombre_es })),
-          dojangs: (resDoj.data || []).map((d: any) => ({ id: d.id, nombre: d.nombre_dojang })),
+          dojangs: (resDoj.data || []).map((d: any) => ({ id: d.id, nombre: d.nombre })), 
           graduaciones: resGrad.data || []
         }));
 

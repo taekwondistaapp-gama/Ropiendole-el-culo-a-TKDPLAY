@@ -6,8 +6,7 @@ import { supabase } from '../lib/supabase'; // Aseguramos que limpie sesión si 
 
 export default function RootLayout() {
   
-  // FUNCIÓN EVANGELIZADORA RECALIBRADA: Borra todo y eyecta al inicio
-  const resetUniversalA_Cero = async () => {
+   const resetUniversalA_Cero = async () => {
     try {
       // 1. Limpiamos la memoria local de desarrollo
       await AsyncStorage.removeItem('@idioma_app');

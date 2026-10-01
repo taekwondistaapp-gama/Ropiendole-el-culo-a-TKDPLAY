@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Image, TouchableOpacity, Dimensions, Text } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 // TODO: REACTIVAR EL VIDEO CUANDO CONECTEMOS SUPABASE
 // import { Video } from 'expo-av'; 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -109,14 +109,14 @@ videoContenedor: {
   },
   
   videoIntro: {
-    // 🟢 Hacemos que el ancho sea exactamente el 100% del ancho del celular
+    // Hacemos que el ancho sea exactamente el 100% del ancho del celular
     width: width, 
     
-    // 📐 Ajustá este alto en píxeles. Al agrandar este número, el video se estirará
+    // Ajustá este alto en píxeles. Al agrandar este número, el video se estirará
     // hacia abajo sin cortarse ni ocultar partes de la imagen.
     height: 600, 
 
-    // 📍 Si necesitás un ajuste milimétrico de posición podés usar márgenes:
+    // Si necesitás un ajuste milimétrico de posición podés usar márgenes:
     // marginTop: -10, // Descomentá y usá números negativos para subirlo, positivos para bajarlo
   },
   bloqueIdiomas: {
@@ -127,7 +127,7 @@ videoContenedor: {
     width: '100%',
   },
 
-  // 📐 MODIFICÁ ACÁ ALTO, ANCHO Y MÁRGENES DE CADA BOTÓN DE FORMA INDEPENDIENTE:
+  //  MODIFICÁ ACÁ ALTO, ANCHO Y MÁRGENES DE CADA BOTÓN DE FORMA INDEPENDIENTE:
   btnEspanol: {
     width: width * 0.40, // 40% del ancho de pantalla
     height: 50,          // Alto del botón

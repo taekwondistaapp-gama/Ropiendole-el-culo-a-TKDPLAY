@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Image, Text, TouchableOpacity, Dimensions } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useState } from 'react';
+import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -17,7 +17,7 @@ export default function SeleccionRolScreen() {
     obtenerIdioma();
   }, []);
 
-  // 🔄 FUNCIÓN MAESTRA: Ahora TODOS van al Login primero.
+  // FUNCIÓN MAESTRA: Ahora TODOS van al Login primero.
   const manejarSeleccionRol = async (rol: 'asociacion' | 'escuela' | 'dojang' | 'practicante') => {
     try {
       await AsyncStorage.setItem('@rol_usuario', rol);

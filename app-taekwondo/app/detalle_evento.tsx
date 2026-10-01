@@ -1,17 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView, SafeAreaView, TextInput, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
-import { Stack, router, useLocalSearchParams } from 'expo-router'; // <-- Agregamos params
-import { Dropdown } from 'react-native-element-dropdown'; 
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Dropdown } from 'react-native-element-dropdown';
+import { diccionario } from '../constants/textos';
 import { supabase } from '../lib/supabase';
-import { diccionario } from '../constants/textos'; 
-import AsyncStorage from '@react-native-async-storage/async-storage'; 
 
 export default function DetalleEventoScreen() {
-  const { id } = useLocalSearchParams(); // <-- Atrapamos el ID del evento a editar
+  const { id } = useLocalSearchParams(); 
   const [idiomaActual, setIdiomaActual] = useState('es');
 
-  // --- ESTADOS DEL FORMULARIO ---
   const [nombre, setNombre] = useState('');
   const [fecha, setFecha] = useState(''); 
   const [lugar, setLugar] = useState('');
@@ -21,7 +20,6 @@ export default function DetalleEventoScreen() {
   const [cargandoInicial, setCargandoInicial] = useState(true);
   const [guardando, setGuardando] = useState(false);
 
-  // --- ESTADOS PARA LOS DROPDOWNS ---
   const [listaTipos, setListaTipos] = useState([]);
   const [listaPaises, setListaPaises] = useState([]);
   const [listaProvincias, setListaProvincias] = useState([]);
@@ -59,10 +57,21 @@ export default function DetalleEventoScreen() {
     if (provs) setListaProvincias(provs as any);
   };
 
-  // --- TRAER EL EVENTO DESDE SUPABASE ---
   const cargarDatosDelEvento = async (eventoId: string) => {
     try {
-      const { data, error } = await supabase.from('eventos').select('*').eq('id', eventoId).single();
+      // 🔥 BLINDAJE: limit(1).maybeSingle()
+      const { data, error } = await supabase
+        .from('eventos')
+        .select('*')
+        .eq('id', eventoId)
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.log("Error de base de datos:", error.message);
+        return;
+      }
+
       if (data) {
         setNombre(data.nombre || '');
         setFecha(data.fecha || '');
@@ -78,7 +87,6 @@ export default function DetalleEventoScreen() {
     }
   };
 
-  // --- ACTUALIZAR EVENTO ---
   const actualizarEvento = async () => {
     if (!nombre || !fecha || !lugar || !valor || !pin || !tipoSeleccionado || !paisSeleccionado || !provinciaSeleccionada) {
       Alert.alert(idiomaActual === 'es' ? 'Faltan datos' : 'Missing data', 'Completá todos los campos.');
@@ -89,7 +97,14 @@ export default function DetalleEventoScreen() {
     const { error } = await supabase
       .from('eventos')
       .update({ 
-        nombre, fecha, lugar, valor: parseFloat(valor), pin_acceso: pin, id_tipo: tipoSeleccionado, id_pais: paisSeleccionado, id_provincia: provinciaSeleccionada 
+        nombre, 
+        fecha, 
+        lugar, 
+        valor: parseFloat(valor), 
+        pin_acceso: pin, 
+        id_tipo: tipoSeleccionado, 
+        id_pais: paisSeleccionado, 
+        id_provincia: provinciaSeleccionada 
       })
       .eq('id', id);
 
@@ -99,7 +114,7 @@ export default function DetalleEventoScreen() {
       Alert.alert('Error', error.message);
     } else {
       Alert.alert('Ok', idiomaActual === 'es' ? 'Evento actualizado con éxito.' : 'Event updated successfully.');
-      router.back(); // Vuelve al cronograma automáticamente
+      router.back(); 
     }
   };
 
@@ -133,7 +148,6 @@ export default function DetalleEventoScreen() {
             {idiomaActual === 'es' ? 'Editar Evento' : 'Edit Event'}
           </Text>
 
-          {/* FORMULARIO CLONADO DE TU DISEÑO */}
           <View style={styles.formContainer}>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>{diccionario[idiomaActual].tipo}</Text>
@@ -188,7 +202,6 @@ export default function DetalleEventoScreen() {
                 </View>
               </View>
 
-              {/* Botón ACTUALIZAR */}
               <TouchableOpacity style={[styles.contenedorBotonCrear, guardando && { opacity: 0.5 }]} onPress={actualizarEvento} disabled={guardando}>
                 {guardando ? (
                   <ActivityIndicator size="large" color="#e60000" style={{ marginRight: 20 }} />
@@ -209,7 +222,6 @@ export default function DetalleEventoScreen() {
   );
 }
 
-// Estilos exactos a los tuyos de eventos.tsx
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#050505' },
   dropdownComponente: { backgroundColor: '#1c1c1c', height: 35, borderTopLeftRadius: 6, borderTopRightRadius: 6, paddingHorizontal: 10 },

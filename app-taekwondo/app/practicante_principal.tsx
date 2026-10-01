@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Image, ScrollView, SafeAreaView, Dimensions, KeyboardAvoidingView, Platform, Modal, Alert } from 'react-native';
-import { router, Stack } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../lib/supabase';
-import { StatusBar } from 'expo-status-bar';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { router, Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { Alert, Dimensions, Image, KeyboardAvoidingView, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { supabase } from '../lib/supabase';
 
 const { width } = Dimensions.get('window');
 
-// Componente visual para las casillas (Checkboxes)
 const Checkbox = ({ label, checked, onPress }: any) => (
   <TouchableOpacity style={styles.checkboxContainer} onPress={onPress}>
     <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
@@ -23,12 +22,10 @@ export default function PracticantePrincipalScreen() {
   const [nombrePracticante, setNombrePracticante] = useState('Cargando...');
   const [pinEvento, setPinEvento] = useState('');
   
-  // Estados para la cámara QR
   const [mostrarScanner, setMostrarScanner] = useState(false);
   const [permisoCamara, pedirPermisoCamara] = useCameraPermissions();
   const [escaneando, setEscaneando] = useState(true);
 
-  // Estados para el Modal de Inscripciones
   const [mostrarModalModalidades, setMostrarModalModalidades] = useState(false);
   const [eventoSeleccionado, setEventoSeleccionado] = useState<any>(null);
   
@@ -53,11 +50,13 @@ export default function PracticantePrincipalScreen() {
       try {
         const idPracticante = await AsyncStorage.getItem('@practicante_id_logueado');
         if (idPracticante) {
+          // 🔥 BLINDAJE: limit(1).maybeSingle()
           const { data, error } = await supabase
             .from('practicantes')
             .select('nombre, apellido')
             .eq('id', idPracticante)
-            .single();
+            .limit(1)
+            .maybeSingle();
 
           if (data && !error) {
             setNombrePracticante(`${data.nombre} ${data.apellido}`);
@@ -75,7 +74,7 @@ export default function PracticantePrincipalScreen() {
   const handleCerrarSesion = async () => {
     await AsyncStorage.removeItem('@practicante_id_logueado');
     await AsyncStorage.removeItem('@rol_usuario');
-    router.replace('/login');
+    router.replace('/');
   };
 
   const handleAbrirScanner = async () => {
@@ -95,15 +94,16 @@ export default function PracticantePrincipalScreen() {
     setMostrarScanner(false);
     
     try {
+      // BLINDAJE: limit(1).maybeSingle()
       const { data: dojangData, error: errorDojang } = await supabase
         .from('dojangs')
         .select('id, nombre_dojang')
         .eq('codigo_token', data)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
-      if (errorDojang || !dojangData) {
-        throw new Error("El código QR no es válido o el Dojang no existe.");
-      }
+      if (errorDojang) throw new Error("Error interno al validar el QR.");
+      if (!dojangData) throw new Error("El código QR no es válido o el Dojang no existe.");
 
       const idPracticante = await AsyncStorage.getItem('@practicante_id_logueado');
       
@@ -124,26 +124,33 @@ export default function PracticantePrincipalScreen() {
   };
 
   const handleVerificarInscripcion = async () => {
-    if (!pinEvento.trim()) {
-      Alert.alert("Atención", "Por favor ingresá el PIN del evento.");
+    const pinLimpio = pinEvento.trim();
+
+    if (!pinLimpio) {
+      Alert.alert("Atención", idiomaActual === 'es' ? "Por favor ingresá el PIN del evento." : "Please enter the event PIN.");
       return;
     }
 
     try {
+      // BLINDAJE: limit(1).maybeSingle()
       const { data: eventoData, error: errorEvento } = await supabase
         .from('eventos')
         .select('id, nombre')
-        .ilike('pin_acceso', pinEvento.trim())
-        .single();
+        .eq('pin_acceso', pinLimpio)
+        .limit(1)
+        .maybeSingle();
 
-      if (errorEvento || !eventoData) {
-        throw new Error("No se encontró ningún evento con ese PIN.");
+      if (errorEvento) throw new Error("Error interno del servidor al buscar el PIN.");
+      if (!eventoData) {
+        Alert.alert("Error", idiomaActual === 'es' ? "No se encontró ningún evento con ese PIN." : "No event found with that PIN.");
+        return;
       }
 
       setEventoSeleccionado(eventoData);
       setMostrarModalModalidades(true);
 
     } catch (err: any) {
+      console.log("Error atrapado:", err);
       Alert.alert("Error", err.message);
     }
   };
@@ -153,13 +160,13 @@ export default function PracticantePrincipalScreen() {
     const eligioRol = roles.coach || roles.juez || roles.arbitro;
 
     if (!eligioModalidad && !eligioRol) {
-      Alert.alert("Atención", "Debes seleccionar al menos una modalidad o rol para inscribirte al evento.");
+      Alert.alert("Atención", idiomaActual === 'es' ? "Debes seleccionar al menos una modalidad o rol." : "Select at least one modality or role.");
       return;
     }
 
     try {
       const idPracticante = await AsyncStorage.getItem('@practicante_id_logueado');
-      const idEventoActual = eventoSeleccionado.id; // Guardamos el ID antes de limpiar
+      const idEventoActual = eventoSeleccionado.id; 
 
       const { error: errorInscripcion } = await supabase
         .from('inscripciones')
@@ -175,7 +182,7 @@ export default function PracticantePrincipalScreen() {
           es_arbitro: roles.arbitro
         });
 
-      if (errorInscripcion) throw errorInscripcion;
+      if (errorInscripcion) throw new Error(errorInscripcion.message);
       
       setMostrarModalModalidades(false);
       setPinEvento('');
@@ -183,7 +190,6 @@ export default function PracticantePrincipalScreen() {
       setModalidades({ lucha: false, tul: false, rotura: false, roturaPoder: false });
       setRoles({ coach: false, juez: false, arbitro: false });
 
-      // REDIRECCIÓN AUTOMÁTICA A LA CREDENCIAL
       router.push({ pathname: '/credencial', params: { idEvento: idEventoActual } });
 
     } catch (err: any) {
@@ -285,7 +291,6 @@ export default function PracticantePrincipalScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* MODAL CÁMARA */}
       <Modal visible={mostrarScanner} animationType="slide" transparent={false}>
         <View style={styles.modalCamaraContainer}>
           {mostrarScanner && (
@@ -305,50 +310,47 @@ export default function PracticantePrincipalScreen() {
               <View style={[styles.esquinaQR, styles.esquinaBottomLeft]} />
               <View style={[styles.esquinaQR, styles.esquinaBottomRight]} />
             </View>
-            <Text style={styles.textoCamara}>Apuntá al código QR del Dojang</Text>
+            <Text style={styles.textoCamara}>{idiomaActual === 'es' ? 'Apuntá al código QR del Dojang' : 'Scan the Dojang QR code'}</Text>
             <TouchableOpacity style={styles.btnCerrarCamara} onPress={() => setMostrarScanner(false)}>
-              <Text style={styles.textoCerrarCamara}>Cancelar</Text>
+              <Text style={styles.textoCerrarCamara}>{idiomaActual === 'es' ? 'Cancelar' : 'Cancel'}</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* MODAL DE INSCRIPCIÓN (MODALIDADES + ROLES) */}
       <Modal visible={mostrarModalModalidades} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             
             <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-              <Text style={styles.modalTitulo}>Inscripción al Evento</Text>
+              <Text style={styles.modalTitulo}>{idiomaActual === 'es' ? 'Inscripción al Evento' : 'Event Registration'}</Text>
               <Text style={styles.modalSubtitulo}>{eventoSeleccionado?.nombre}</Text>
 
-              {/* SECCIÓN COMPETIDOR */}
-              <Text style={styles.seccionTituloModal}>MODALIDADES (Competidor)</Text>
+              <Text style={styles.seccionTituloModal}>{idiomaActual === 'es' ? 'MODALIDADES (Competidor)' : 'MODALITIES (Competitor)'}</Text>
               <View style={styles.contenedorOpciones}>
-                <Checkbox label="Lucha (Sparring)" checked={modalidades.lucha} onPress={() => toggleModalidad('lucha')} />
-                <Checkbox label="Formas (Tul)" checked={modalidades.tul} onPress={() => toggleModalidad('tul')} />
-                <Checkbox label="Rotura" checked={modalidades.rotura} onPress={() => toggleModalidad('rotura')} />
-                <Checkbox label="Rotura de Poder" checked={modalidades.roturaPoder} onPress={() => toggleModalidad('roturaPoder')} />
+                <Checkbox label={idiomaActual === 'es' ? "Lucha (Sparring)" : "Sparring"} checked={modalidades.lucha} onPress={() => toggleModalidad('lucha')} />
+                <Checkbox label={idiomaActual === 'es' ? "Formas (Tul)" : "Patterns (Tul)"} checked={modalidades.tul} onPress={() => toggleModalidad('tul')} />
+                <Checkbox label={idiomaActual === 'es' ? "Rotura" : "Breaking"} checked={modalidades.rotura} onPress={() => toggleModalidad('rotura')} />
+                <Checkbox label={idiomaActual === 'es' ? "Rotura de Poder" : "Power Breaking"} checked={modalidades.roturaPoder} onPress={() => toggleModalidad('roturaPoder')} />
               </View>
 
               <View style={styles.divisorModal} />
 
-              {/* SECCIÓN ROLES */}
-              <Text style={styles.seccionTituloModal}>ROLES Y OFICIALES</Text>
+              <Text style={styles.seccionTituloModal}>{idiomaActual === 'es' ? 'ROLES Y OFICIALES' : 'ROLES & OFFICIALS'}</Text>
               <View style={styles.contenedorOpciones}>
                 <Checkbox label="Coach" checked={roles.coach} onPress={() => toggleRol('coach')} />
-                <Checkbox label="Juez de Esquina" checked={roles.juez} onPress={() => toggleRol('juez')} />
-                <Checkbox label="Árbitro Central" checked={roles.arbitro} onPress={() => toggleRol('arbitro')} />
+                <Checkbox label={idiomaActual === 'es' ? "Juez de Esquina" : "Corner Judge"} checked={roles.juez} onPress={() => toggleRol('juez')} />
+                <Checkbox label={idiomaActual === 'es' ? "Árbitro Central" : "Center Referee"} checked={roles.arbitro} onPress={() => toggleRol('arbitro')} />
               </View>
             </ScrollView>
 
             <View style={styles.modalAcciones}>
               <TouchableOpacity style={styles.btnCancelarModal} onPress={() => setMostrarModalModalidades(false)}>
-                <Text style={styles.textoCancelarModal}>Cancelar</Text>
+                <Text style={styles.textoCancelarModal}>{idiomaActual === 'es' ? 'Cancelar' : 'Cancel'}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.btnConfirmarModal} onPress={confirmarInscripcion}>
-                <Text style={styles.textoConfirmarModal}>CONFIRMAR</Text>
+                <Text style={styles.textoConfirmarModal}>{idiomaActual === 'es' ? 'CONFIRMAR' : 'CONFIRM'}</Text>
               </TouchableOpacity>
             </View>
 

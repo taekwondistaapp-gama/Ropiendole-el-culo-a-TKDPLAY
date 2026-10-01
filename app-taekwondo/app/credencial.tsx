@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, Image, ImageBackground, SafeAreaView, TouchableOpacity, Dimensions, ActivityIndicator, Alert } from 'react-native';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../lib/supabase';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, Image, ImageBackground, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
+import { supabase } from '../lib/supabase';
 
 const { width } = Dimensions.get('window');
 
@@ -16,7 +16,6 @@ export default function CredencialScreen() {
   const [datosEvento, setDatosEvento] = useState<any>(null);
   const [rolesInscripcion, setRolesInscripcion] = useState<any>(null);
 
-  // Referencia para capturar la tarjeta exacta
   const viewShotRef = useRef<any>(null);
 
   useEffect(() => {
@@ -25,31 +24,30 @@ export default function CredencialScreen() {
         const idPracticante = await AsyncStorage.getItem('@practicante_id_logueado');
         if (!idPracticante) return;
 
-        // BLINDAJE: Aseguramos que el ID del evento sea un texto simple para evitar la pantalla roja
         const eventoIdSeguro = Array.isArray(idEvento) ? idEvento[0] : idEvento;
 
-        // 1. Cargar datos del practicante
+        // 🔥 BLINDAJE 1: limit(1).maybeSingle() para el practicante
         const { data: pracData, error: pracError } = await supabase
           .from('practicantes')
           .select('*')
           .eq('id', idPracticante)
-          .single();
+          .limit(1)
+          .maybeSingle();
           
         if (pracError) throw pracError;
         setDatosPracticante(pracData);
 
-        // 2. Cargar datos del evento e inscripción
         if (eventoIdSeguro) {
           const { data: evData, error: evError } = await supabase
             .from('eventos')
             .select('nombre')
             .eq('id', eventoIdSeguro)
-            .single();
+            .limit(1)
+            .maybeSingle();
             
           if (evError) throw evError;
           setDatosEvento(evData);
 
-          // Buscar inscripciones sin .single() para evitar crasheos si te inscribiste más de una vez probando
           const { data: insData, error: insError } = await supabase
             .from('inscripciones')
             .select('*')
@@ -59,7 +57,6 @@ export default function CredencialScreen() {
           if (insError) throw insError;
 
           if (insData && insData.length > 0) {
-            // Nos quedamos con la ÚLTIMA inscripción registrada (adiós "ASISTENTE")
             setRolesInscripcion(insData[insData.length - 1]);
           }
         }
@@ -84,7 +81,6 @@ export default function CredencialScreen() {
     return r.length > 0 ? r.join(' • ') : 'ASISTENTE';
   };
 
-  // Función que "fotografía" el componente y lo comparte/guarda
   const handleGuardarYVolver = async () => {
     setGuardando(true);
     try {
@@ -118,28 +114,22 @@ export default function CredencialScreen() {
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* VIEWSHOT: Todo lo que esté adentro de esta etiqueta será "fotografiado" */}
       <ViewShot ref={viewShotRef} options={{ format: "jpg", quality: 1.0 }} style={styles.credencialWrapper}>
-        
         <ImageBackground 
           source={require('../assets/images/fondo_credencial.png')} 
           style={styles.fondoCredencial} 
           resizeMode="cover"
         >
-          {/* NOMBRE DEL EVENTO */}
           <Text style={[styles.textoEvento, { top: 30, left: 0, right: 0 }]}>
             {datosEvento?.nombre || 'TORNEO OFICIAL'}
           </Text>
 
-          {/* FOTO DEL PRACTICANTE */}
           <View style={[styles.contenedorFoto, { top: 75, left: '50%', marginLeft: -55 }]}>
             {datosPracticante?.foto_perfil_url ? (
               <Image source={{ uri: datosPracticante.foto_perfil_url }} style={styles.fotoPerfil} />
             ) : (
               <View style={styles.fotoPlaceholder}><Text style={styles.textoPlaceholderFoto}>SIN FOTO</Text></View>
             )}
-            
-            {/* MARCO DE LA FOTO (Superpuesto) */}
             <Image 
               source={require('../assets/images/marco_foto.png')} 
               style={styles.marcoFoto} 
@@ -147,35 +137,28 @@ export default function CredencialScreen() {
             />
           </View>
 
-          {/* NOMBRE Y APELLIDO */}
           <Text style={[styles.textoNombreApellido, { top: 220, left: 0, right: 0 }]}>
             {datosPracticante?.nombre} {datosPracticante?.apellido}
           </Text>
 
-          {/* ROL / MODALIDAD */}
           <View style={[styles.seccionRol, { top: 250, left: '50%', marginLeft: -75 }]}>
             <Text style={styles.textoRol}>{obtenerRolesTexto()}</Text>
           </View>
 
-          {/* NOMBRE EN COREANO */}
           <Text style={[styles.textoCoreano, { top: 290, left: 0, right: 0 }]}>
             {datosPracticante?.nombre_coreano || ''}
           </Text>
           
-          {/* LEYENDA PEQUEÑA DEL COREANO */}
           <Text style={[styles.leyendaCoreano, { top: 318, left: 0, right: 0 }]}>
             tu nombre en coreano
           </Text>
 
-          {/* ID DEL PRACTICANTE (Abajo) */}
           <Text style={[styles.textoID, { bottom: 20, left: 0, right: 0 }]}>
             ID: {datosPracticante?.id?.substring(0, 8) || 'TKD'}
           </Text>
-
         </ImageBackground>
       </ViewShot>
 
-      {/* BOTÓN GUARDAR Y VOLVER */}
       <View style={styles.contenedorBotonGuardar}>
         <TouchableOpacity style={styles.btnGuardar} onPress={handleGuardarYVolver} disabled={guardando}>
           {guardando ? (
@@ -185,7 +168,6 @@ export default function CredencialScreen() {
           )}
         </TouchableOpacity>
       </View>
-
     </SafeAreaView>
   );
 }
@@ -196,7 +178,7 @@ const styles = StyleSheet.create({
   
   credencialWrapper: { 
     width: width * 0.82, 
-    height: (width * 0.82) * 1.6, // Mantiene la proporción vertical fija
+    height: (width * 0.82) * 1.6,
     borderRadius: 12, 
     overflow: 'hidden',
     borderWidth: 2,
@@ -205,14 +187,13 @@ const styles = StyleSheet.create({
   },
   fondoCredencial: { flex: 1, width: '100%', height: '100%', position: 'relative' },
   
-  // Elementos con Posicionamiento Absoluto
   textoEvento: { position: 'absolute', color: '#ffffff', fontSize: 16, fontWeight: '900', textAlign: 'center', letterSpacing: 1 },
   
   contenedorFoto: { position: 'absolute', width: 110, height: 130, justifyContent: 'center', alignItems: 'center' },
   fotoPerfil: { width: '100%', height: '100%', borderRadius: 6, resizeMode: 'cover' },
   fotoPlaceholder: { width: '100%', height: '100%', borderRadius: 6, backgroundColor: '#222', justifyContent: 'center', alignItems: 'center' },
   textoPlaceholderFoto: { color: '#777', fontSize: 10, fontWeight: 'bold' },
-  marcoFoto: { position: 'absolute', top: -5, left: -5, width: 120, height: 140, zIndex: 10 }, // El zIndex lo pone por encima de la foto
+  marcoFoto: { position: 'absolute', top: -5, left: -5, width: 120, height: 140, zIndex: 10 },
   
   textoNombreApellido: { position: 'absolute', color: '#ffffff', fontSize: 18, fontWeight: 'bold', textAlign: 'center' },
   

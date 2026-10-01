@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, SafeAreaView, Image, Modal, FlatList, ActivityIndicator, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import { Stack, router } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker'; 
-import { supabase } from '../lib/supabase'; 
-import { diccionario } from '../constants/textos'; 
-import AsyncStorage from '@react-native-async-storage/async-storage'; 
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { diccionario } from '../constants/textos';
+import { supabase } from '../lib/supabase';
 
-// 🌟 Lista Maestra Bilingüe de Graduaciones (Copia exacta de tu registro)
 const GRADUACIONES_BILINGUES = [
   { id: 1, es: 'Blanco', en: 'White Belt' },
   { id: 2, es: 'Blanco Punta Amarilla', en: 'White Belt Yellow Stripe' },
@@ -35,14 +34,12 @@ export default function ActualizarDatosScreen() {
   const [asociacionId, setAsociacionId] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
 
-  // --- CAMPOS DEL FORMULARIO ---
   const [nombre, setNombre] = useState('');
   const [presidente, setPresidente] = useState('');
   const [alias, setAlias] = useState('');
-  const [password, setPassword] = useState(''); // Manejo virtual (no se lee de DB, solo se actualiza)
+  const [password, setPassword] = useState(''); 
   const [logoUri, setLogoUri] = useState<string | null>(null);
 
-  // --- ESTADOS DE GEOLOCALIZACIÓN Y SELECCIÓN ---
   const [paises, setPaises] = useState([]);
   const [provincias, setProvincias] = useState([]);
   const [paisSeleccionado, setPaisSeleccionado] = useState<any>(null);
@@ -53,7 +50,6 @@ export default function ActualizarDatosScreen() {
   const [cargandoPaises, setCargandoPaises] = useState(true);
   const [cargandoProvincias, setCargandoProvincias] = useState(false);
 
-  // Modales
   const [modalPaisVisible, setModalPaisVisible] = useState(false);
   const [modalProvinciaVisible, setModalProvinciaVisible] = useState(false);
   const [modalGraduacionVisible, setModalGraduacionVisible] = useState(false);
@@ -71,10 +67,12 @@ export default function ActualizarDatosScreen() {
 
         let idDetectado = await AsyncStorage.getItem('@asociacion_id_logueada'); 
         let query = supabase.from('asociaciones').select('*');
+        
+        // 🔥 ACÁ ESTÁ LA MAGIA: Cambiamos .single() por .limit(1).maybeSingle()
         if (idDetectado) {
-          query = query.eq('id', idDetectado).single();
+          query = query.eq('id', idDetectado).limit(1).maybeSingle();
         } else {
-          query = query.order('id', { ascending: false }).limit(1).single(); // Truco de prueba
+          query = query.order('id', { ascending: false }).limit(1).maybeSingle();
         }
 
         const { data: asociacion, error } = await query;
@@ -168,7 +166,6 @@ export default function ActualizarDatosScreen() {
         id_provincia: provinciaSeleccionada?.id || null,  
       };
 
-      // Solo metemos password en el update si el usuario escribió algo nuevo
       if (password) {
         paqueteDatos.password = password; 
       }
@@ -198,7 +195,6 @@ export default function ActualizarDatosScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContainer} bounces={false}>
           
-          {/* HEADER */}
           <View style={styles.headerSection}>
             <Text style={styles.tituloHeader}>
               <Text style={styles.tituloHeaderRojo}>
@@ -211,14 +207,12 @@ export default function ActualizarDatosScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Campo: Nombre */}
           <View style={styles.inputGroupNombre}>
             <Text style={styles.labelNombre}>{idiomaActual === 'es' ? 'Nombre de la Asociación o Escuela' : 'Association or School Name'}</Text>
             <TextInput style={styles.inputTxtNombre} value={nombre} onChangeText={setNombre} selectionColor="#e60000" />
             <Image source={require('../assets/images/esquina_roja_corta.png')} style={styles.pinceladaNombre} resizeMode="stretch" />
           </View>
 
-          {/* Fila: País y Provincia */}
           <View style={styles.filaDivididaGeo}>
             <View style={styles.inputGroupPais}>
               <Text style={styles.labelPais}>{idiomaActual === 'es' ? 'País de Origen' : 'Country of Origin'}</Text>
@@ -260,14 +254,12 @@ export default function ActualizarDatosScreen() {
             </View>
           </View>
 
-          {/* Campo: Presidente */}
           <View style={styles.inputGroupPresidente}>
             <Text style={styles.labelPresidente}>{idiomaActual === 'es' ? 'Presidente' : 'President'}</Text>
             <TextInput style={styles.inputTxtPresidente} value={presidente} onChangeText={setPresidente} selectionColor="#e60000" />
             <Image source={require('../assets/images/esquina_roja_corta.png')} style={styles.pinceladaPresidente} resizeMode="stretch" />
           </View>
 
-          {/* Campo: Graduación */}
           <View style={styles.inputGroupGraduacion}>
             <Text style={styles.labelGraduacion}>{idiomaActual === 'es' ? 'Graduación' : 'Rank'}</Text>
             <TouchableOpacity style={styles.inputConIconoGraduacion} onPress={() => setModalGraduacionVisible(true)} activeOpacity={0.8}>
@@ -283,7 +275,6 @@ export default function ActualizarDatosScreen() {
             <Image source={require('../assets/images/esquina_roja_corta.png')} style={styles.pinceladaGraduacion} resizeMode="stretch" />
           </View>
 
-          {/* Fila: Alias y Password */}
           <View style={styles.filaDivididaCredenciales}>
             <View style={styles.inputGroupAlias}>
               <Text style={styles.labelAlias}>{idiomaActual === 'es' ? 'Elegir Alias' : 'Choose Username'}</Text>
@@ -297,16 +288,13 @@ export default function ActualizarDatosScreen() {
             </View>
           </View>
 
-          {/* Bloque de Pie: Logo y Botones de Acción */}
           <View style={styles.bloquePieSeccion}>
             
-            {/* LOGO CON ÁNGULOS INDEPENDIENTES */}
             <TouchableOpacity style={styles.cajaSubirLogoContenedor} onPress={abrirGaleriaDispositivo} activeOpacity={0.7}>
               <View style={styles.cuadroLogoAncla}>
                 <View style={styles.cuadroLogoMascara}>
                   {logoUri && <Image source={{ uri: logoUri }} style={styles.imagenLogoPreview} />}
                 </View>
-                {/* 📐 Perillas del marco del logo */}
                 <Image source={require('../assets/images/angulo_rojo1.png')} style={styles.anguloLogoIzquierdaArriba} resizeMode="stretch" />
                 <Image source={require('../assets/images/angulo_rojo2.png')} style={styles.anguloLogoDerechaAbajo} resizeMode="stretch" />
               </View>
@@ -315,7 +303,6 @@ export default function ActualizarDatosScreen() {
               </Text>
             </TouchableOpacity>
 
-            {/* BOTÓN ACTUALIZAR DE IMAGEN */}
             <View style={styles.columnaBotonAccionSubmit}>
               <TouchableOpacity onPress={procesarFormularioForm} style={styles.hitboxBotonPngCrear} disabled={guardando}>
                 {guardando ? (
@@ -331,7 +318,6 @@ export default function ActualizarDatosScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* MODALES TIPO LISTA DESPLEGABLE */}
       <Modal visible={modalPaisVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContenido}>
@@ -386,19 +372,16 @@ export default function ActualizarDatosScreen() {
 }
 
 const styles = StyleSheet.create({
-  // ESTRUCTURA BASE
   container: { flex: 1, backgroundColor: '#050505' },
   fondoArribaDerecha: { position: 'absolute', top: 0, right: 0, width: 300, height: 600, zIndex: -1 },
   fondoAbajoCentro: { position: 'absolute', bottom: 20, alignSelf: 'center', width: '90%', height: 15, zIndex: -1 },
   scrollContainer: { flexGrow: 1, paddingHorizontal: 25, paddingTop: 30, paddingBottom: 80 },
 
-  // HEADER VOLVER / TÍTULO
   headerSection: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 25, paddingHorizontal: 5 },
   tituloHeader: { color: '#ffffff', fontSize: 18, fontWeight: '900', textAlign: 'center' },
   tituloHeaderRojo: { color: '#e60000' },
   contenedorBotonIr: { padding: 5 },
 
-  // 📐 CAMPOS INDEPENDIENTES PARA CALIBRACIÓN DE DISEÑO:
   inputGroupNombre: { marginBottom: 10, width: '100%' },
   labelNombre: { color: '#ffffff', fontSize: 12, fontWeight: 'bold', marginBottom: 5, marginLeft: 5 },
   inputTxtNombre: { backgroundColor: '#1c1c1c', color: '#ffffff', height: 35, borderTopLeftRadius: 6, borderTopRightRadius: 6, paddingHorizontal: 15, fontSize: 12 },
@@ -451,14 +434,13 @@ const styles = StyleSheet.create({
   cuadroLogoMascara: { width: 75, height: 75, borderWidth: 1.5, borderColor: '#333', backgroundColor: '#0a0a0a', zIndex: 1, overflow: 'hidden' },
   imagenLogoPreview: { width: '100%', height: '100%' },
   
-  // 📐 PERILLAS PARA LOS ÁNGULOS DEL LOGO 
   anguloLogoIzquierdaArriba: { position: 'absolute', top: -6, left: -6, width: 30, height: 30, zIndex: 0 },
   anguloLogoDerechaAbajo: { position: 'absolute', bottom: -6, right: -6, width: 30, height: 30, zIndex: 0 },
   textoSubirLogoLabel: { color: '#ffffff', fontSize: 11, fontWeight: 'bold', lineHeight: 18 },
 
   columnaBotonAccionSubmit: { flex: 0.5, alignItems: 'flex-end', justifyContent: 'center' },
   hitboxBotonPngCrear: { width: '100%', height: 65, justifyContent: 'center', alignItems: 'flex-end' },
-  imagenAssetBotonActualizar: { width: '100%', height: '100%' }, // <--- Usa boton_actualizar.png
+  imagenAssetBotonActualizar: { width: '100%', height: '100%' },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
   modalContenido: { width: '85%', maxHeight: '60%', backgroundColor: '#121212', borderRadius: 8, borderWidth: 1, borderColor: '#252525', padding: 20 },

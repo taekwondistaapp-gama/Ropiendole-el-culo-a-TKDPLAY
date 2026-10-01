@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
-import { router, Stack } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../lib/supabase';
+import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { supabase } from '../lib/supabase';
 
 export default function MisEventosScreen() {
   const [inscripciones, setInscripciones] = useState<any[]>([]);
@@ -19,7 +19,6 @@ export default function MisEventosScreen() {
       
       if (!idPracticante) return;
 
-      // Hacemos una consulta "join" para traer la inscripción y los datos del evento
       const { data, error } = await supabase
         .from('inscripciones')
         .select(`
@@ -49,16 +48,14 @@ export default function MisEventosScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar style="light" />
 
-      {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.btnVolver}>
           <Text style={styles.textoVolver}>{"< Volver"}</Text>
         </TouchableOpacity>
         <Text style={styles.tituloHeader}>MIS EVENTOS</Text>
-        <View style={{ width: 60 }} /> {/* Espaciador para centrar el título */}
+        <View style={{ width: 60 }} /> 
       </View>
 
-      {/* LISTA DE EVENTOS */}
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {cargando ? (
           <ActivityIndicator size="large" color="#e60000" style={{ marginTop: 50 }} />
@@ -69,7 +66,10 @@ export default function MisEventosScreen() {
         ) : (
           inscripciones.map((inscripcion, index) => (
             <View key={index} style={styles.tarjetaEvento}>
-              <Text style={styles.nombreEvento}>{inscripcion.eventos?.nombre}</Text>
+              {/* 🔥 BLINDAJE VISUAL: Fallback por si el evento fue eliminado de la DB */}
+              <Text style={styles.nombreEvento}>
+                {inscripcion.eventos?.nombre || "Evento no disponible"}
+              </Text>
               
               <View style={styles.divisor} />
               
@@ -81,7 +81,6 @@ export default function MisEventosScreen() {
                 {inscripcion.compite_rotura_poder && <Text style={styles.etiquetaModalidad}>Rot. Poder</Text>}
               </View>
 
-              {/* Botón para ver la llave (Magia futura) */}
               <TouchableOpacity style={styles.btnVerLlave}>
                 <Text style={styles.textoBtnLlave}>VER LLAVE Y CATEGORÍA</Text>
               </TouchableOpacity>
@@ -103,7 +102,6 @@ const styles = StyleSheet.create({
   emptyContainer: { alignItems: 'center', marginTop: 50 },
   emptyText: { color: '#aaaaaa', fontSize: 14, textAlign: 'center' },
   
-  // Diseño de la tarjeta del evento
   tarjetaEvento: { backgroundColor: '#111111', borderRadius: 8, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#333333', position: 'relative', overflow: 'hidden' },
   nombreEvento: { color: '#ffffff', fontSize: 15, fontWeight: 'bold', marginBottom: 10 },
   divisor: { height: 1, backgroundColor: '#333333', marginVertical: 10 },

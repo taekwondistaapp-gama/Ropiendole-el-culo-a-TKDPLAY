@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react'; 
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, router } from 'expo-router';
-import { supabase } from '../lib/supabase'; 
-import { diccionario } from '../constants/textos'; 
-import AsyncStorage from '@react-native-async-storage/async-storage'; 
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { supabase } from '../lib/supabase';
 
 export default function ListaEventosScreen() {
   const [idiomaActual, setIdiomaActual] = useState('es');
@@ -35,7 +34,7 @@ export default function ListaEventosScreen() {
       if (error) throw error;
 
       if (dataEventos) {
-        const eventosCompletos = await Promise.all(dataEventos.map(async (evento) => {
+        const eventosCompletos = await Promise.all((dataEventos || []).map(async (evento) => {
           const { count } = await supabase
             .from('inscripciones_eventos')
             .select('*', { count: 'exact', head: true })
@@ -127,7 +126,7 @@ export default function ListaEventosScreen() {
                   <Image source={require('../assets/images/esquina_roja_larga.png')} style={styles.pinceladaInscriptos} resizeMode="stretch" />
                 </View>
 
-                {/* BOTONES DE ACCIÓN EN TEXTO (Izquierda y Derecha abajo de todo) */}
+                {/* BOTONES DE ACCIÓN EN TEXTO */}
                 <View style={styles.bloqueBotonesAccion}>
                   <TouchableOpacity onPress={() => router.push({ pathname: '/detalle_evento', params: { id: evento.id } })} style={styles.botonTextoAccion}>
                     <Text style={styles.textoBotonEditar}>{idiomaActual === 'es' ? 'EDITAR' : 'EDIT'}</Text>
@@ -163,7 +162,6 @@ export default function ListaEventosScreen() {
 }
 
 const styles = StyleSheet.create({
-  // ESTRUCTURA GENERAL DE FONDOS
   container: { flex: 1, backgroundColor: '#050505' },
   fondoArribaDerecha: { position: 'absolute', top: 0, right: 0, width: 300, height: 600, opacity: 1, zIndex: -2 },
   dibujoLineaFondo: { position: 'absolute', alignSelf: 'center', top: '35%', width: 400, height: 400, opacity: 1, zIndex: -1 },
@@ -173,38 +171,31 @@ const styles = StyleSheet.create({
   tituloRojo: { color: '#e60000' },
   listaContainer: { width: '100%', alignItems: 'center' },
   
-  // CONTEDOR DE LA TARJETA (FEED INTEGRADO)
   tarjetaFeedContenedor: { width: '95%', backgroundColor: '#080808', opacity: 0.95, borderRadius: 2, padding: 25, borderWidth: 1, borderColor: '#1c1c1c', marginBottom: 40 },
   textoNombreAsociacion: { color: '#fff', fontSize: 16, fontWeight: 'bold', textAlign: 'center', marginBottom: 30 },
   
-  // 📐 PERILLAS DE DISEÑO INDEPENDIENTES: TORNEO
   grupoDatoTorneo: { marginBottom: 30, width: '100%', position: 'relative' },
   labelTorneo: { color: '#e60000', fontSize: 14, fontWeight: '900', marginBottom: 4 },
   valorTorneo: { color: '#fff', fontSize: 17, fontWeight: 'bold', marginLeft: 2 },
   pinceladaTorneo: { width: '80%', height: 16, position: 'absolute', bottom: -18, left: -20 },
   
-  // 📐 PERILLAS DE DISEÑO INDEPENDIENTES: FECHA
   grupoDatoFecha: { marginBottom: 30, width: '100%', position: 'relative' },
   labelFecha: { color: '#e60000', fontSize: 14, fontWeight: '900', marginBottom: 4 },
   valorFecha: { color: '#fff', fontSize: 17, fontWeight: 'bold', marginLeft: 2 },
   pinceladaFecha: { width: '50%', height: 16, position: 'absolute', bottom: -18, left: -20 },
   
-  // 📐 PERILLAS DE DISEÑO INDEPENDIENTES: CANTIDAD DE INSCRIPTOS
   bloqueInscriptos: { position: 'relative', width: '100%', marginBottom: 30 },
   labelInscriptos: { color: '#fff', fontSize: 14, fontWeight: 'bold', marginBottom: 8 },
   cajaGrisInscriptos: { backgroundColor: '#1c1c1c', width: 120, height: 45, borderRadius: 4, justifyContent: 'center', alignItems: 'center', zIndex: 1 },
   numeroInscriptos: { color: '#fff', fontSize: 20, fontWeight: '900' },
   pinceladaInscriptos: { width: '45%', height: 16, position: 'absolute', bottom: -12, left: -15, zIndex: 0 },
   
-  // 📐 CONTENEDOR DE BOTONES (UNO EN CADA PUNTA ABAJO)
   bloqueBotonesAccion: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginTop: 10 },
   botonTextoAccion: { paddingVertical: 10 },
   
-  // 📍 REGLAS DE CONTROL TIPOGRÁFICO DE LOS BOTONES:
-  textoBotonEditar: { color: '#ffffff', fontSize: 13, fontWeight: '900', letterSpacing: 1 }, // Cambiá tamaño acá 👈
-  textoBotonCancelar: { color: '#e60000', fontSize: 13, fontWeight: '900', letterSpacing: 1 }, // Cambiá tamaño acá 👈
+  textoBotonEditar: { color: '#ffffff', fontSize: 13, fontWeight: '900', letterSpacing: 1 }, 
+  textoBotonCancelar: { color: '#e60000', fontSize: 13, fontWeight: '900', letterSpacing: 1 }, 
 
-  // NAV BAR INFERIOR
   navBar: { position: 'absolute', bottom: 40, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', paddingHorizontal: 10, zIndex: 10 },
   navBoton: { width: '25%', alignItems: 'center' },
   imagenHome: { width: '100%', height: 28 },

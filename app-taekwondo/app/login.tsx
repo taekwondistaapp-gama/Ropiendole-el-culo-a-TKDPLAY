@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, Image, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { router, Stack } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router, Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../lib/supabase';
 
 export default function LoginScreen() {
@@ -10,35 +10,27 @@ export default function LoginScreen() {
   const [alias, setAlias] = useState('');
   const [password, setPassword] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [rolActual, setRolActual] = useState('practicante'); 
 
   useEffect(() => {
-    const cargarIdioma = async () => {
+    const cargarDatosIniciales = async () => {
       const guardado = await AsyncStorage.getItem('@idioma_app');
       if (guardado) setIdiomaActual(guardado);
+      
+      const rol = await AsyncStorage.getItem('@rol_usuario');
+      if (rol) setRolActual(rol);
     };
-    cargarIdioma();
+    cargarDatosIniciales();
   }, []);
 
-  // 🔀 REDIRECCIÓN AL FORMULARIO DE REGISTRO CORRECTO
-  const irAlRegistroSaberRol = async () => {
-    try {
-      const rolGuardado = await AsyncStorage.getItem('@rol_usuario');
-      
-      if (rolGuardado === 'practicante') {
-        router.push('/registro_practicante');
-      } else if (rolGuardado === 'dojang') {
-        router.push('/dojang_registro'); 
-      } else if (rolGuardado === 'escuela') {
-        router.push('/escuela_registro');
-      } else {
-        router.push('/registro'); // asociación
-      }
-    } catch (err) {
-      console.log("Error leyendo rol para redirección:", err);
-    }
+  const irAlRegistroSaberRol = () => {
+    if (rolActual === 'practicante') {
+      router.push('/registro_practicante');
+    } else if (rolActual === 'dojang') {
+      router.push('/dojang_registro'); 
+    } 
   };
 
-  // 🔥 MOTOR DE ACCESO DINÁMICO
   const procesarLogin = async () => {
     const aliasLimpio = alias.trim();
     const passwordLimpio = password.trim();
@@ -51,16 +43,57 @@ export default function LoginScreen() {
     setCargando(true);
 
     try {
-      // 1. LEEMOS A DÓNDE QUERÍA ENTRAR EL USUARIO
-      const rolGuardado = await AsyncStorage.getItem('@rol_usuario') || 'practicante';
+      if (rolActual === 'dojang') {
+        const { data: practData, error: practError } = await supabase
+          .from('practicantes')
+          .select('id, password')
+          .ilike('alias', aliasLimpio)
+          .limit(1)
+          .maybeSingle();
 
-      // 2. ENRUTAMOS LA BÚSQUEDA A LA TABLA CORRECTA
+        if (practError) {
+          Alert.alert('Error de Servidor', practError.message);
+          setCargando(false);
+          return;
+        }
+
+        if (!practData || practData.password !== passwordLimpio) {
+          Alert.alert('Acceso Denegado', idiomaActual === 'es' ? 'Credenciales incorrectas o alias no encontrado.' : 'Incorrect credentials.');
+          setCargando(false);
+          return;
+        }
+
+        // BLINDAJE APLICADO: .limit(1).maybeSingle() ya estaba en uso
+        const { data: dojangData, error: dojError } = await supabase
+          .from('dojangs')
+          .select('id')
+          .eq('id_instructor', practData.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (dojError) {
+          Alert.alert('Error de Servidor', dojError.message);
+          setCargando(false);
+          return;
+        }
+
+        if (!dojangData) {
+          Alert.alert('Acceso Denegado', idiomaActual === 'es' ? 'Este usuario no tiene un Dojang registrado a su nombre.' : 'No dojang registered to this user.');
+          setCargando(false);
+          return;
+        }
+
+        await AsyncStorage.setItem('@usuario_id', dojangData.id);
+        await AsyncStorage.setItem('@dojang_id_logueado', dojangData.id);
+        router.replace('/dojang_principal');
+        setCargando(false);
+        return;
+      }
+
       let tablaDeBusqueda = 'practicantes';
-      if (rolGuardado === 'dojang') tablaDeBusqueda = 'dojangs';
-      if (rolGuardado === 'escuela') tablaDeBusqueda = 'escuelas';
-      if (rolGuardado === 'asociacion') tablaDeBusqueda = 'asociaciones';
+      if (rolActual === 'escuela') tablaDeBusqueda = 'escuelas';
+      if (rolActual === 'asociacion') tablaDeBusqueda = 'asociaciones';
 
-      // 3. BUSCAMOS EL ALIAS EN ESA TABLA ESPECÍFICA (Con límite para atrapar errores reales)
       const { data: usuarioData, error: usuarioError } = await supabase
         .from(tablaDeBusqueda)
         .select('id, password')
@@ -75,7 +108,7 @@ export default function LoginScreen() {
       }
 
       if (!usuarioData) {
-        Alert.alert('Alerta de Sistema', idiomaActual === 'es' ? `El alias no existe adentro de la tabla: ${tablaDeBusqueda}.` : `The alias was not found in: ${tablaDeBusqueda}.`);
+        Alert.alert('Alerta de Sistema', idiomaActual === 'es' ? `El alias no existe en el sistema para este rol.` : `Alias not found for this role.`);
         setCargando(false);
         return;
       }
@@ -86,20 +119,16 @@ export default function LoginScreen() {
         return;
       }
 
-      // 4. GUARDAMOS LAS CREDENCIALES Y DAMOS ACCESO DIRECTO
       const usuarioId = usuarioData.id;
       await AsyncStorage.setItem('@usuario_id', usuarioId);
 
-      if (rolGuardado === 'practicante') {
+      if (rolActual === 'practicante') {
         await AsyncStorage.setItem('@practicante_id_logueado', usuarioId);
         router.replace('/practicante_principal');
-      } else if (rolGuardado === 'dojang') {
-        await AsyncStorage.setItem('@dojang_id_logueado', usuarioId);
-        router.replace('/dojang_principal');
-      } else if (rolGuardado === 'escuela') {
+      } else if (rolActual === 'escuela') {
         await AsyncStorage.setItem('@escuela_id_logueada', usuarioId);
         router.replace('/escuela_principal');
-      } else {
+      } else if (rolActual === 'asociacion') {
         await AsyncStorage.setItem('@asociacion_id_logueada', usuarioId);
         router.replace('/asociacion_principal');
       }
@@ -172,12 +201,14 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity onPress={irAlRegistroSaberRol} style={styles.hitboxRegistro}>
-            <Text style={styles.textoRegistro}>
-              {idiomaActual === 'es' ? 'Si no tiene cuenta ' : 'If you have no account '}
-              <Text style={styles.textoRegistroRojo}>{idiomaActual === 'es' ? 'Creela aquí' : 'Create one here'}</Text>
-            </Text>
-          </TouchableOpacity>
+          {(rolActual === 'practicante' || rolActual === 'dojang') && (
+            <TouchableOpacity onPress={irAlRegistroSaberRol} style={styles.hitboxRegistro}>
+              <Text style={styles.textoRegistro}>
+                {idiomaActual === 'es' ? 'Si no tiene cuenta ' : 'If you have no account '}
+                <Text style={styles.textoRegistroRojo}>{idiomaActual === 'es' ? 'Creela aquí' : 'Create one here'}</Text>
+              </Text>
+            </TouchableOpacity>
+          )}
 
           <View style={styles.contenedorLogoInferior}>
             <Image source={require('../assets/images/logo_taekwondista.png')} style={styles.imgLogoInferior} resizeMode="contain" />

@@ -1,23 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, Image, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Modal, FlatList } from 'react-native';
-import { router, Stack } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as ImagePicker from 'expo-image-picker';
+import { router, Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../lib/supabase';
-import * as ImagePicker from 'expo-image-picker'; 
-import * as FileSystem from 'expo-file-system'; 
 
 export default function DojangRegistroScreen() {
   const [idiomaActual, setIdiomaActual] = useState('es');
   const [cargando, setCargando] = useState(false);
 
-  // --- CAMPOS DEL FORMULARIO ---
-  const [alias, setAlias] = useState(''); // 🔥 EL DATO FUNDAMENTAL
+  const [alias, setAlias] = useState(''); 
+  const [password, setPassword] = useState(''); 
   const [nombre, setNombre] = useState('');
   const [provinciaManual, setProvinciaManual] = useState(''); 
   const [logoUri, setLogoUri] = useState<string | null>(null); 
 
-  // --- ESTADOS DE LISTAS ---
   const [paises, setPaises] = useState<any[]>([]);
   const [provincias, setProvincias] = useState<any[]>([]);
   const [escuelas, setEscuelas] = useState<any[]>([]); 
@@ -26,7 +25,6 @@ export default function DojangRegistroScreen() {
   const [provinciaSeleccionada, setProvinciaSeleccionada] = useState<any>(null);
   const [escuelaSeleccionada, setEscuelaSeleccionada] = useState<any>(null);
 
-  // --- MODALES ---
   const [modalPais, setModalPais] = useState(false);
   const [modalProvincia, setModalProvincia] = useState(false);
   const [modalEscuela, setModalEscuela] = useState(false);
@@ -37,18 +35,22 @@ export default function DojangRegistroScreen() {
       if (guardado) setIdiomaActual(guardado);
       
       try {
-        // Magia: Si ya hay un usuario logueado, le buscamos y autocompletamos el Alias
         const { data: { session } } = await supabase.auth.getSession();
         let idLogueado = session?.user?.id || await AsyncStorage.getItem('@usuario_id');
         
         if (idLogueado) {
-          const { data: practData } = await supabase.from('practicantes').select('alias').eq('id', idLogueado).single();
+          const { data: practData } = await supabase
+            .from('practicantes')
+            .select('alias')
+            .eq('id', idLogueado)
+            .limit(1)
+            .maybeSingle();
+            
           if (practData && practData.alias) {
             setAlias(practData.alias);
           }
         }
 
-        // Cargamos Paises y Escuelas
         const [ { data: dataPaises }, { data: dataEscuelas } ] = await Promise.all([
           supabase.from('paises').select('*').order(guardado === 'en' ? 'nombre_en' : 'nombre_es', { ascending: true }),
           supabase.from('escuelas').select('id, nombre').order('nombre', { ascending: true })
@@ -117,27 +119,24 @@ export default function DojangRegistroScreen() {
         uriParaSubir = tempPath; 
       }
 
-      const fileRes = await fetch(uriParaSubir);
-      const blob = await fileRes.blob();
-
-      const uploadRes = await fetch(uploadUrl, {
-        method: 'POST',
+      const uploadRes = await FileSystem.uploadAsync(uploadUrl, uriParaSubir, {
+        httpMethod: 'POST',
         headers: {
           'Authorization': `Bearer ${supabaseAnonKey}`,
           'apikey': supabaseAnonKey,
           'Content-Type': `image/${fileExt}`
         },
-        body: blob
+        uploadType: 1 
       });
 
-      if (!uploadRes.ok) {
-        throw new Error(`Rechazo del servidor: ${uploadRes.status}`);
+      if (uploadRes.status !== 200 && uploadRes.status !== 201) {
+        throw new Error(`Rechazo del servidor (${uploadRes.status}): ${uploadRes.body}`);
       }
 
       return `${supabaseUrl}/storage/v1/object/public/logos_dojangs/${fileName}`;
       
     } catch (error: any) {
-      console.error("Fallo la subida:", error);
+      console.error("Fallo la subida universal:", error);
       throw new Error(`Error subiendo la foto: ${error.message}`);
     }
   };
@@ -145,31 +144,57 @@ export default function DojangRegistroScreen() {
   const registrarDojang = async () => {
     const tieneProvinciaValida = provincias.length > 0 ? provinciaSeleccionada : provinciaManual.trim();
 
-    // Verificamos que no falte nada básico
-    if (!alias || !nombre || !paisSeleccionado || !tieneProvinciaValida) {
-      Alert.alert('Error', idiomaActual === 'es' ? 'Alias, Nombre, País y Provincia son obligatorios.' : 'Alias, Name, Country and Province are required.');
+    if (!alias || !password || !nombre || !paisSeleccionado || !tieneProvinciaValida) {
+      Alert.alert('Error', idiomaActual === 'es' ? 'Alias, Contraseña, Nombre, País y Provincia son obligatorios.' : 'Alias, Password, Name, Country and Province are required.');
       return;
     }
 
     setCargando(true);
     try {
-      // 🔥 EL PATOVICA MEJORADO: Usamos .ilike() para que ignore mayúsculas y minúsculas
+      // 🔥 BLINDAJE 2: El límite ya estaba implementado, solo aseguro limpieza.
       const { data: practicanteData, error: practError } = await supabase
         .from('practicantes')
-        .select('id')
+        .select('id, password, graduacion')
         .ilike('alias', alias.trim()) 
-        .single();
+        .limit(1)
+        .maybeSingle();
 
-      if (practError || !practicanteData) {
-        Alert.alert('Alias no encontrado', idiomaActual === 'es' ? 'No encontramos un practicante con ese Alias. Primero debés registrarte como practicante.' : 'Alias not found. You must register as a practitioner first.');
+      if (practError) {
+        Alert.alert('Error de Base de Datos', practError.message);
         setCargando(false);
         return;
       }
 
-      // Si pasamos el control, el dueño del Dojang es ese ID.
+      if (!practicanteData) {
+        Alert.alert('Acceso Denegado', idiomaActual === 'es' ? 'No encontramos un practicante con ese Alias.' : 'Alias not found. You must register as a practitioner first.');
+        setCargando(false);
+        return;
+      }
+
+      if (practicanteData.password !== password.trim()) {
+        Alert.alert('Acceso Denegado', idiomaActual === 'es' ? 'La contraseña es incorrecta.' : 'Incorrect password.');
+        setCargando(false);
+        return;
+      }
+
+      const gradRaw = practicanteData.graduacion ? String(practicanteData.graduacion).trim().toLowerCase() : '';
+      const gradNum = parseInt(gradRaw, 10);
+      const tieneDan = gradRaw.includes('dan');
+      const esIdDanValido = !isNaN(gradNum) && gradNum >= 11;
+
+      if (!tieneDan && !esIdDanValido) {
+        Alert.alert(
+          'Requisito no cumplido', 
+          idiomaActual === 'es' 
+            ? 'Debés ser al menos 1° Dan para registrar y dirigir un Dojang.' 
+            : 'You must be at least 1st Dan to register and direct a Dojang.'
+        );
+        setCargando(false);
+        return;
+      }
+
       const id_instructor = practicanteData.id;
 
-      // Subimos logo si hay
       let urlFinalLogo = logoUri;
       if (logoUri && !logoUri.startsWith('http')) {
         urlFinalLogo = await subirLogoASupabase(logoUri);
@@ -180,7 +205,7 @@ export default function DojangRegistroScreen() {
         id_instructor: id_instructor, 
         id_pais: paisSeleccionado.id,
         id_provincia: provinciaSeleccionada ? provinciaSeleccionada.id : null,
-        id_escuela: escuelaSeleccionada ? escuelaSeleccionada.id : null, // Opcional
+        id_escuela: escuelaSeleccionada ? escuelaSeleccionada.id : null, 
         foto_url: urlFinalLogo
       };
 
@@ -214,11 +239,18 @@ export default function DojangRegistroScreen() {
             <Text style={styles.tituloHeaderRojo}>{idiomaActual === 'es' ? 'Crear ' : 'Create '}</Text>{idiomaActual === 'es' ? 'dojang' : 'dojang'}
           </Text>
 
-          {/* 🔥 EL CAMPO ALIAS AL PRINCIPIO */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>{idiomaActual === 'es' ? 'Tu Alias de Practicante' : 'Your Practitioner Alias'}</Text>
-            <TextInput style={styles.input} selectionColor="#e60000" value={alias} onChangeText={setAlias} autoCapitalize="none" />
-            <Image source={require('../assets/images/esquina_roja_corta.png')} style={styles.esquinaRojaCorta} resizeMode="stretch" />
+          <View style={styles.rowGroup}>
+            <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+              <Text style={styles.label}>{idiomaActual === 'es' ? 'Tu Alias' : 'Your Alias'}</Text>
+              <TextInput style={styles.input} selectionColor="#e60000" value={alias} onChangeText={setAlias} autoCapitalize="none" />
+              <Image source={require('../assets/images/esquina_roja_corta.png')} style={styles.esquinaRojaCorta} resizeMode="stretch" />
+            </View>
+
+            <View style={[styles.inputGroup, { flex: 1, marginLeft: 10 }]}>
+              <Text style={styles.label}>{idiomaActual === 'es' ? 'Contraseña' : 'Password'}</Text>
+              <TextInput style={styles.input} selectionColor="#e60000" secureTextEntry value={password} onChangeText={setPassword} autoCapitalize="none" />
+              <Image source={require('../assets/images/esquina_roja_corta.png')} style={styles.esquinaRojaCorta} resizeMode="stretch" />
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
@@ -294,7 +326,6 @@ export default function DojangRegistroScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* MODALES */}
       <Modal visible={modalPais} transparent animationType="fade">
         <View style={styles.modalFondoOverlay}>
           <View style={styles.modalBoxContenedor}>
@@ -366,14 +397,14 @@ const styles = StyleSheet.create({
   logotipoWrapper: { position: 'relative', width: 75, height: 75, marginRight: 15 },
   boxLogoGris: { width: '100%', height: '100%', backgroundColor: '#111', borderWidth: 1.5, borderColor: '#333', overflow: 'hidden' },
   anguloRojoLogo: { 
-  position: 'absolute', 
-  bottom: -12, 
-  left: -12, 
-  width: 60, 
-  height: 60, 
-  zIndex: 2,
-  transform: [{ rotate: '90deg' }] // 🔄 Giro exacto de 180 grados
-},
+    position: 'absolute', 
+    bottom: -12, 
+    left: -12, 
+    width: 60, 
+    height: 60, 
+    zIndex: 2,
+    transform: [{ rotate: '90deg' }] 
+  },
   txtSubirLogo: { color: '#fff', fontSize: 13, fontWeight: 'bold', lineHeight: 18 },
   btnCrearHitbox: { width: 140, height: 80, justifyContent: 'center', alignItems: 'center' },
   imgBotonCrear: { width: '100%', height: '100%' },

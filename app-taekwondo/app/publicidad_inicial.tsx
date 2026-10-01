@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Image, Text, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../lib/supabase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -18,16 +18,20 @@ export default function PublicidadInicialScreen() {
         const guardado = await AsyncStorage.getItem('@idioma_app');
         if (guardado) setIdiomaActual(guardado);
 
-        // Traemos el sponsor principal activo de Supabase
+        // BLINDAJE: limit(1).maybeSingle() para evitar pantallas rojas si no hay sponsors activos
         const { data, error } = await supabase
           .from('sponsors')
           .select('*')
           .eq('nivel', 'principal')
           .eq('activo', true)
           .limit(1)
-          .single();
+          .maybeSingle();
 
-        if (!error && data) {
+        if (error) {
+          console.log("Error de base de datos cargando sponsor:", error.message);
+        }
+
+        if (data) {
           setUrlSponsor(data.url_imagen);
         }
       } catch (err) {
@@ -42,14 +46,11 @@ export default function PublicidadInicialScreen() {
 
   const avanzarSiguientePantalla = async () => {
     try {
-      // Opción B: Verificamos si el usuario ya inició sesión antes
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session) {
-        // Si ya está logueado, va directo al panel operativo de la asociación
         router.replace('/asociacion_principal');
       } else {
-        // Si no está logueado, lo mandamos a que elija cómo ingresar
         router.replace('/seleccion_rol');
       }
     } catch (err) {
@@ -62,33 +63,28 @@ export default function PublicidadInicialScreen() {
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* ESQUINA SUPERIOR IZQUIERDA (Original) */}
       <Image 
         source={require('../assets/images/esquina_roja_larga.png')} 
         style={styles.esquinaTopLeft} 
         resizeMode="stretch"
       />
 
-      {/* ESQUINA INFERIOR DERECHA (Con Flip Vertical y Horizontal perfecto para calzar el ángulo) */}
       <Image 
         source={require('../assets/images/esquina_roja_larga.png')} 
         style={styles.esquinaBottomRight} 
         resizeMode="stretch"
       />
 
-      {/* Botón Saltar flotante arriba */}
       <TouchableOpacity style={styles.botonCerrar} onPress={avanzarSiguientePantalla} activeOpacity={0.7}>
         <Text style={styles.textoCerrar}>{idiomaActual === 'es' ? 'Saltar ✕' : 'Skip ✕'}</Text>
       </TouchableOpacity>
 
-      {/* Contenedor de la Publicidad a Pantalla Completa */}
       <View style={styles.contenidoPublicidad}>
         {cargando ? (
           <ActivityIndicator size="large" color="#e60000" />
         ) : urlSponsor ? (
           <Image source={{ uri: urlSponsor }} style={styles.bannerImg} resizeMode="cover" />
         ) : (
-          // Tu mockup exacto gris para las pruebas gráficas de pantalla completa
           <View style={styles.cajaGrisMockup}>
             <Text style={styles.textoMockup}>PUBLICIDAD</Text>
           </View>
@@ -105,21 +101,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#050505',
   },
-  // Reemplazá estas dos clases dentro de tu StyleSheet.create en app/publicidad_inicial.tsx:
-
   esquinaTopLeft: {
     position: 'absolute',
     top: 40,
     left: 0,
-    width: 140, // Controlá el ancho que quieras
-    height: 35, // Controlá el alto que quieras
+    width: 140, 
+    height: 35, 
     zIndex: 10,
     transform: [
-      { scaleX: 1 }, // Flip Horizontal
-      { scaleY: -1 }  // Flip Vertical
+      { scaleX: 1 }, 
+      { scaleY: -1 }  
     ],
   },
-   botonCerrar: {
+  botonCerrar: {
     position: 'absolute',
     top: 615,
     right: 5,
@@ -135,15 +129,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 140, // Controlá el ancho que quieras
-    height: 35, // Controlá el alto que quieras
+    width: 140, 
+    height: 35, 
     zIndex: 10,
     transform: [
-      { scaleX: -1 }, // Flip Horizontal
-      { scaleY: 1 }  // Flip Vertical
+      { scaleX: -1 }, 
+      { scaleY: 1 }  
     ],
   },
- 
   textoCerrar: {
     color: '#ffffff',
     fontSize: 11,

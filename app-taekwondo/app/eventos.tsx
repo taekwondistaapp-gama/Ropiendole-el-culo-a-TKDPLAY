@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView, SafeAreaView, TextInput, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, router } from 'expo-router';
-import { Dropdown } from 'react-native-element-dropdown'; // <-- Traemos el nuevo repuesto visual
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Dropdown } from 'react-native-element-dropdown';
+import { diccionario } from '../constants/textos';
 import { supabase } from '../lib/supabase';
-import { diccionario } from '../constants/textos'; // <-- El diccionario de hoy
-import AsyncStorage from '@react-native-async-storage/async-storage'; // <-- Para recordar la elección
 
 export default function EventosScreen() {
-  // --- LÓGICA DE DETECCIÓN DE IDIOMA ---
   const [idiomaActual, setIdiomaActual] = useState('es');
 
   useEffect(() => {
@@ -19,7 +18,6 @@ export default function EventosScreen() {
     cargarIdioma();
   }, []);
 
-  // --- ESTADOS DEL FORMULARIO ---
   const [nombre, setNombre] = useState('');
   const [fecha, setFecha] = useState(''); 
   const [lugar, setLugar] = useState('');
@@ -27,7 +25,6 @@ export default function EventosScreen() {
   const [pin, setPin] = useState('');
   const [cargando, setCargando] = useState(false);
 
-  // --- ESTADOS PARA LOS DROPDOWNS REALES ---
   const [listaTipos, setListaTipos] = useState([]);
   const [listaPaises, setListaPaises] = useState([]);
   const [listaProvincias, setListaProvincias] = useState([]);
@@ -36,12 +33,10 @@ export default function EventosScreen() {
   const [paisSeleccionado, setPaisSeleccionado] = useState(null);
   const [provinciaSeleccionada, setProvinciaSeleccionada] = useState(null);
 
-  // --- AL ABRIR LA PANTALLA: CARGAMOS DATOS BASE ---
   useEffect(() => {
     obtenerDatosIniciales();
   }, []);
 
-  // --- ESCUCHA CAMBIOS DE PAÍS PARA TRAER SUS PROVINCIAS ---
   useEffect(() => {
     if (paisSeleccionado) {
       obtenerProvincias(paisSeleccionado);
@@ -53,33 +48,33 @@ export default function EventosScreen() {
 
   const obtenerDatosIniciales = async () => {
     try {
-      // 1. Traer tipos de eventos
-      const { data: tipos } = await supabase.from('tipos_evento').select('*');
-      if (tipos) setListaTipos(tipos);
+      const { data: tipos, error: errorTipos } = await supabase.from('tipos_evento').select('*');
+      if (errorTipos) throw errorTipos;
+      if (tipos) setListaTipos(tipos as any);
 
-      // 2. Traer países
-      const { data: paises } = await supabase.from('paises').select('*');
-      if (paises) setListaPaises(paises);
+      const { data: paises, error: errorPaises } = await supabase.from('paises').select('*');
+      if (errorPaises) throw errorPaises;
+      if (paises) setListaPaises(paises as any);
 
     } catch (error) {
       console.log("Error cargando selectores iniciales:", error);
     }
   };
 
-  const obtenerProvincias = async (idPais) => {
+  const obtenerProvincias = async (idPais: any) => {
     try {
-      const { data: provs } = await supabase
+      const { data: provs, error } = await supabase
         .from('provincias')
         .select('*')
         .eq('id_pais', idPais);
       
-      if (provs) setListaProvincias(provs);
+      if (error) throw error;
+      if (provs) setListaProvincias(provs as any);
     } catch (error) {
       console.log("Error cargando provincias:", error);
     }
   };
 
-  // --- FUNCIÓN GUARDAR EVENTO ---
   const guardarEvento = async () => {
     if (!nombre || !fecha || !lugar || !valor || !pin || !tipoSeleccionado || !paisSeleccionado || !provinciaSeleccionada) {
       Alert.alert(
@@ -90,33 +85,35 @@ export default function EventosScreen() {
     }
 
     setCargando(true);
-    const idSimulado = Math.floor(Math.random() * 999999) + 1;
+    try {
+      // Nota: Si configuraste el 'id' en Supabase para que se genere solo (auto-increment o UUID), 
+      // podrías quitar el idSimulado en el futuro. Por ahora lo dejamos como lo armaste.
+      const idSimulado = Math.floor(Math.random() * 999999) + 1;
 
-    const { error } = await supabase
-      .from('eventos')
-      .insert([
-        { 
-          id: idSimulado, 
-          nombre: nombre, 
-          fecha: fecha, 
-          lugar: lugar, 
-          valor: parseFloat(valor), 
-          pin_acceso: pin,
-          id_tipo: tipoSeleccionado,       
-          id_pais: paisSeleccionado,       
-          id_provincia: provinciaSeleccionada 
-        }
-      ]);
+      const { error } = await supabase
+        .from('eventos')
+        .insert([
+          { 
+            id: idSimulado, 
+            nombre: nombre, 
+            fecha: fecha, 
+            lugar: lugar, 
+            valor: parseFloat(valor), 
+            pin_acceso: pin,
+            id_tipo: tipoSeleccionado,       
+            id_pais: paisSeleccionado,       
+            id_provincia: provinciaSeleccionada 
+          }
+        ]);
 
-    setCargando(false);
+      if (error) throw error;
 
-    if (error) {
-      Alert.alert('Error', error.message);
-    } else {
       Alert.alert(
         idiomaActual === 'es' ? '¡Éxito total!' : 'Success!', 
         idiomaActual === 'es' ? 'El evento ya está guardado con sus llaves de localización.' : 'The event has been successfully saved.'
       );
+      
+      // Limpiamos el formulario
       setNombre('');
       setFecha('');
       setLugar('');
@@ -125,6 +122,12 @@ export default function EventosScreen() {
       setTipoSeleccionado(null);
       setPaisSeleccionado(null);
       setProvinciaSeleccionada(null);
+
+    } catch (error: any) {
+      console.log("Error guardando evento:", error);
+      Alert.alert('Error', error.message);
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -132,14 +135,12 @@ export default function EventosScreen() {
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
       
-      {/* FONDOS ABSOLUTOS */}
       <Image source={require('../assets/images/pincelada_negra.png')} style={styles.fondoArribaDerecha} resizeMode="contain" />
       <Image source={require('../assets/images/pincelada_roja.png')} style={styles.fondoAbajoCentro} resizeMode="stretch" />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContainer} bounces={false}>
           
-          {/* HEADER SECTION INTERNACIONALIZADO */}
           <View style={styles.headerSection}>
             <Text style={styles.tituloPrincipal}>
               <Text style={styles.textoRojo}>
@@ -151,15 +152,12 @@ export default function EventosScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* SUBTÍTULO INTERNACIONALIZADO */}
           <Text style={styles.subtituloSection}>
             {diccionario[idiomaActual].crearEvento}
           </Text>
 
-          {/* FORMULARIO */}
           <View style={styles.formContainer}>
             
-            {/* Campo: Tipo */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>{diccionario[idiomaActual].tipo}</Text>
               <Dropdown
@@ -179,14 +177,12 @@ export default function EventosScreen() {
               <Image source={require('../assets/images/esquina_roja_corta.png')} style={styles.pinceladaInput} resizeMode="stretch" />
             </View>
 
-            {/* Campo: Nombre */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>{diccionario[idiomaActual].nombre}</Text>
               <TextInput style={styles.input} selectionColor="#e60000" value={nombre} onChangeText={setNombre} />
               <Image source={require('../assets/images/esquina_roja_corta.png')} style={styles.pinceladaInput} resizeMode="stretch" />
             </View>
 
-            {/* Campo: País */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>{diccionario[idiomaActual].pais}</Text>
               <Dropdown
@@ -206,7 +202,6 @@ export default function EventosScreen() {
               <Image source={require('../assets/images/esquina_roja_corta.png')} style={styles.pinceladaInput} resizeMode="stretch" />
             </View>
 
-            {/* Fila Dividida: Provincia y Fecha */}
             <View style={styles.filaDividida}>
               <View style={[styles.inputGroup, { flex: 1.2, marginRight: 15 }]}>
                 <Text style={styles.label}>{diccionario[idiomaActual].provincia}</Text>
@@ -235,14 +230,12 @@ export default function EventosScreen() {
               </View>
             </View>
 
-            {/* Campo: Lugar */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>{diccionario[idiomaActual].lugar}</Text>
               <TextInput style={styles.input} selectionColor="#e60000" value={lugar} onChangeText={setLugar} />
               <Image source={require('../assets/images/esquina_roja_corta.png')} style={styles.pinceladaInput} resizeMode="stretch" />
             </View>
 
-            {/* Bloque Inferior: Valores + Botón Crear */}
             <View style={styles.seccionAccionesForm}>
               <View style={styles.bloqueCamposCortos}>
                 <View style={[styles.inputGroup, { width: '100%' }]}>
@@ -258,7 +251,6 @@ export default function EventosScreen() {
                 </View>
               </View>
 
-              {/* Botón CREAR (DINÁMICO CON TU NUEVA IMAGEN) */}
               <TouchableOpacity style={[styles.contenedorBotonCrear, cargando && { opacity: 0.5 }]} onPress={guardarEvento} disabled={cargando}>
                 {cargando ? (
                   <ActivityIndicator size="large" color="#e60000" style={{ marginRight: 40, marginBottom: 20 }} />
@@ -276,7 +268,6 @@ export default function EventosScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* MENÚ INFERIOR (DINÁMICO CON TUS NUEVAS IMÁGENES) */}
       <View style={styles.navBar}>
         <TouchableOpacity style={styles.navBoton} onPress={() => router.replace('/asociacion_principal')}>
           <Image 
@@ -336,7 +327,7 @@ const styles = StyleSheet.create({
   imagenBotonCrear: { width: '100%', height: 80 },
   navBar: { position: 'absolute', bottom: 35, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', paddingHorizontal: 10, zIndex: 10 },
   navBoton: { width: '25%', alignItems: 'center' },
-  imagenHome: { width: '100%', height: 25 },
-  imagenEscuelas: { width: '100%', height: 25 },
+  imagenHome: { width: '100%', height: 27 },
+  imagenEscuelas: { width: '100%', height: 30 },
   imagenEventos: { width: '100%', height: 25 }
 });

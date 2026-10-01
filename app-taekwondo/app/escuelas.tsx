@@ -1,35 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView, SafeAreaView, TextInput, KeyboardAvoidingView, Platform, Modal, FlatList, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, router } from 'expo-router';
-import { diccionario } from '../constants/textos'; 
-import AsyncStorage from '@react-native-async-storage/async-storage'; 
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { diccionario } from '../constants/textos';
 import { supabase } from '../lib/supabase';
 
 export default function EscuelasScreen() {
   const [idiomaActual, setIdiomaActual] = useState('es');
   const [cargando, setCargando] = useState(false);
 
-  // --- ESTADOS DE LA ASOCIACIÓN LOGUEADA ---
   const [asociacionId, setAsociacionId] = useState<string | null>(null);
   const [nombreAsociacion, setNombreAsociacion] = useState('');
   const [logoUri, setLogoUri] = useState<string | null>(null);
 
-  // --- ESTADOS DE DATOS ---
   const [provincias, setProvincias] = useState<any[]>([]);
   const [escuelas, setEscuelas] = useState<any[]>([]);
   const [dojangs, setDojangs] = useState<any[]>([]);
   const [totalAlumnos, setTotalAlumnos] = useState<number>(0);
 
-  // --- SELECCIONES ACTIVAS ---
   const [provinciaSeleccionada, setProvinciaSeleccionada] = useState<any>(null);
   const [escuelaSeleccionada, setEscuelaSeleccionada] = useState<any>(null);
 
-  // --- CONTROL DE MODALES SELECTORES ---
   const [modalProvinciaVisible, setModalProvinciaVisible] = useState(false);
   const [modalEscuelaVisible, setModalEscuelaVisible] = useState(false);
 
-  // 1️⃣ INICIALIZADOR MAESTRO
   useEffect(() => {
     const inicializar = async () => {
       const guardado = await AsyncStorage.getItem('@idioma_app');
@@ -41,10 +36,9 @@ export default function EscuelasScreen() {
         
         let query = supabase.from('asociaciones').select('*');
         if (idDetectado) {
-          query = query.eq('id', idDetectado).single();
+          query = query.eq('id', idDetectado).limit(1).maybeSingle();
         } else {
-          // SALVAVIDAS
-          query = query.order('id', { ascending: false }).limit(1).single(); 
+          query = query.order('id', { ascending: false }).limit(1).maybeSingle(); 
         }
 
         const { data: asociacion, error: errorAsoc } = await query;
@@ -56,20 +50,15 @@ export default function EscuelasScreen() {
           setNombreAsociacion(asociacion.nombre || '');
           setLogoUri(asociacion.logo_url || null);
 
-          // Si la asociación tiene país, traemos sus provincias
-          if (asociacion.id_pais) {
-            // 🔥 ACÁ ESTABA EL ERROR: Solo ordenamos por 'nombre', no por 'nombre_es'
-            const { data: dataProvincias, error: errorProv } = await supabase
-              .from('provincias')
-              .select('*')
-              .eq('id_pais', asociacion.id_pais) 
-              .order('nombre', { ascending: true });
+          const { data: dataProvincias, error: errorProv } = await supabase
+            .from('provincias')
+            .select('*')
+            .order('nombre', { ascending: true });
 
-            if (errorProv) {
-              console.log("Error trayendo provincias de Supabase:", errorProv.message);
-            } else if (dataProvincias) {
-              setProvincias(dataProvincias);
-            }
+          if (errorProv) {
+            console.log("Error trayendo provincias:", errorProv.message);
+          } else if (dataProvincias) {
+            setProvincias(dataProvincias);
           }
         }
       } catch (err) {
@@ -79,7 +68,6 @@ export default function EscuelasScreen() {
     inicializar();
   }, [idiomaActual]);
 
-  // 2️⃣ Seleccionar Provincia -> Traer Escuelas
   const seleccionarProvincia = async (prov: any) => {
     setProvinciaSeleccionada(prov);
     setEscuelaSeleccionada(null);
@@ -95,7 +83,11 @@ export default function EscuelasScreen() {
         .eq('id_provincia', prov.id)
         .eq('id_asociacion', asociacionId); 
 
-      if (!error && data) setEscuelas(data);
+      if (!error && data) {
+          setEscuelas(data);
+      } else if (error) {
+          console.log("Error buscando escuelas:", error.message);
+      }
     } catch (err) {
       console.log("Error buscando escuelas:", err);
     } finally {
@@ -103,7 +95,6 @@ export default function EscuelasScreen() {
     }
   };
 
-  // 3️⃣ Seleccionar Escuela -> Traer Dojangs
   const seleccionarEscuela = async (esc: any) => {
     setEscuelaSeleccionada(esc);
     setModalEscuelaVisible(false);
@@ -112,13 +103,15 @@ export default function EscuelasScreen() {
     try {
       const { data, error } = await supabase
         .from('dojangs')
-        .select('*')
+        .select('*, practicantes(count)')
         .eq('id_escuela', esc.id);
 
       if (!error && data) {
         setDojangs(data);
-        const sumaAlumnos = data.reduce((acc: number, curr: any) => acc + (curr.cantidad_alumnos || 0), 0);
+        const sumaAlumnos = data.reduce((acc: number, curr: any) => acc + (curr.practicantes[0]?.count || 0), 0);
         setTotalAlumnos(sumaAlumnos);
+      } else if (error) {
+          console.log("Error buscando dojangs:", error.message);
       }
     } catch (err) {
       console.log("Error buscando dojangs:", err);
@@ -137,7 +130,6 @@ export default function EscuelasScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContainer} bounces={false}>
           
-          {/* SECCIÓN DEL LOGOTIPO DINÁMICO */}
           <View style={styles.headerSection}>
             <View style={styles.logotipoContenedor}>
               <Image source={require('../assets/images/angulo_rojo1.png')} style={styles.anguloArribaIzquierda} resizeMode="stretch" />
@@ -155,10 +147,8 @@ export default function EscuelasScreen() {
             </Text>
           </View>
 
-          {/* FORMULARIO OPERATIVO DE PROVINCIAS Y ESCUELAS */}
           <View style={styles.formContainer}>
             
-            {/* Selector: Provincia */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>{diccionario[idiomaActual]?.provincia || 'Provincia'}</Text>
               <TouchableOpacity style={styles.inputConIcono} onPress={() => setModalProvinciaVisible(true)}>
@@ -174,7 +164,6 @@ export default function EscuelasScreen() {
               <Image source={require('../assets/images/esquina_roja_corta.png')} style={styles.pinceladaInput} resizeMode="stretch" />
             </View>
 
-            {/* Selector: Escuelas */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>{idiomaActual === 'es' ? 'Escuelas' : 'Schools'}</Text>
               <TouchableOpacity 
@@ -194,7 +183,6 @@ export default function EscuelasScreen() {
               <Image source={require('../assets/images/esquina_roja_corta.png')} style={styles.pinceladaInput} resizeMode="stretch" />
             </View>
 
-            {/* Caja de visualización de Dojangs */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>{idiomaActual === 'es' ? 'Dojangs de la escuela' : "School's Dojangs"}</Text>
               <View style={styles.cajaDojangs}>
@@ -213,21 +201,18 @@ export default function EscuelasScreen() {
               <Image source={require('../assets/images/esquina_roja_corta.png')} style={styles.pinceladaInput} resizeMode="stretch" />
             </View>
 
-            {/* Contador de alumnos */}
             <View style={[styles.inputGroup, { width: '55%' }]}>
               <Text style={styles.label}>{idiomaActual === 'es' ? 'Cant. de alumnos Dojang' : 'Dojang Students Count'}</Text>
               <TextInput style={[styles.input, { textAlign: 'center', fontWeight: 'bold' }]} editable={false} value={String(totalAlumnos)} />
               <Image source={require('../assets/images/esquina_roja_corta.png')} style={styles.pinceladaInputCorta} resizeMode="stretch" />
             </View>
 
-            {/* BANNER PUBLICIDAD */}
             <View style={styles.bannerPublicidadInterno}></View>
 
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* MODALES */}
       <Modal visible={modalProvinciaVisible} transparent animationType="fade">
         <View style={styles.modalFondoOverlay}>
           <View style={styles.modalBoxContenedor}>
@@ -280,7 +265,6 @@ export default function EscuelasScreen() {
         </View>
       </Modal>
 
-      {/* MENÚ INFERIOR */}
       <View style={styles.navBar}>
         <TouchableOpacity style={styles.navBoton} onPress={() => router.replace('/asociacion_principal')}>
           <Image source={idiomaActual === 'es' ? require('../assets/images/boton_home.png') : require('../assets/images/boton_home_en.png')} style={styles.imagenHome} resizeMode="contain" />

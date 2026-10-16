@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Creator: CorelDRAW 2020 (64-Bit) -->
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="43.0037mm" height="164.665mm" version="1.1" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" image-rendering="optimizeQuality" fill-rule="evenodd" clip-rule="evenodd"
+viewBox="0 0 596.37 2283.57"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:xodm="http://www.corel.com/coreldraw/odm/2003">
+ <defs>
+     <clipPath id="id0">
+      <path d="M-0 92.18l570.78 0 0 2191.39 -570.78 0 0 -2191.39z"/>
+     </clipPath>
+    <clipPath id="id1">
+     <path d="M150.45 0l444.94 0 0.98 1838.9c-76.83,71.73 -141.03,148.76 -220.06,222.33 0,0 -10.52,8.64 -18.87,3.87 -80.74,-66.22 -135.06,-146.03 -204.05,-218.12 -2.69,-1.65 -1.71,-6.97 -2.57,-10.46l-0.37 -1836.52z"/>
+    </clipPath>
+     <clipPath id="id2">
+      <rect x="261.93" y="765.2" width="227.18" height="974.91"/>
+     </clipPath>
+ </defs>
+ <g id="Capa_x0020_1">
+  <metadata id="CorelCorpID_0Corel-Layer"/>
+  <g id="_2670138866688">
+   <g>
+    <g clip-path="url(#id0)">
+     <image x="-0" y="92.18" width="570.78" height="2191.39" xlink:href="estandarte rojo_Images\estandarte rojo_ImgID1.png"/>
+    </g>
+   </g>
+   <g clip-path="url(#id1)">
+    <image x="150.45" y="-0" width="444.94" height="2064.83" xlink:href="estandarte rojo_Images\estandarte rojo_ImgID2.png"/>
+   </g>
+   <g>
+   </g>
+   <g>
+    <g clip-path="url(#id2)">
+     <image x="261.93" y="765.2" width="227.18" height="974.91" xlink:href="estandarte rojo_Images\estandarte rojo_ImgID3.png"/>
+    </g>
+   </g>
+  </g>
+ </g>
+</svg>
